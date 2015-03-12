@@ -1,5 +1,5 @@
 (function() {
-  var Counter, CupsCounter, CupsCounters, Field, PropertyMixin, moduleKeywords,
+  var Counter, CupsCounter, CupsCounters, Field, Game, PropertyMixin, moduleKeywords,
     slice = [].slice,
     indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; },
     extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
@@ -120,7 +120,36 @@
   PropertyMixin = {
     property: function(prop, options) {
       return Object.defineProperty(this.prototype, prop, options);
+    },
+    addProperty: function(name) {
+      return this.property(name, {
+        get: function() {
+          return this["_" + name];
+        },
+        set: function(value) {
+          if (this["set" + (name.capitalize())] != null) {
+            return this["set" + (name.capitalize())](value);
+          } else {
+            return this.setProp(name, value);
+          }
+        }
+      });
+    },
+    extended: function() {
+      return this.prototype.setProp = function(name, value) {
+        if (this["_" + name] !== value) {
+          this["_" + name] = value;
+          if (typeof this.trigger === "function") {
+            this.trigger("change:" + name, this["_" + name]);
+          }
+        }
+        return this["_" + name];
+      };
     }
+  };
+
+  String.prototype.capitalize = function() {
+    return this.charAt(0).toUpperCase() + this.slice(1);
   };
 
   this.ViewMixin = {
@@ -153,6 +182,80 @@
   };
 
   namespace({
+    models: CupsCounter = (function(superClass) {
+      extend(CupsCounter, superClass);
+
+      CupsCounter.extend(PropertyMixin);
+
+      CupsCounter.include(EventMixin);
+
+      CupsCounter.addProperty('all');
+
+      CupsCounter.addProperty('score');
+
+      function CupsCounter(name1, all) {
+        this.name = name1;
+        this.all = all;
+        this.score = 0;
+      }
+
+      return CupsCounter;
+
+    })(Module)
+  });
+
+  namespace({
+    models: Game = (function(superClass) {
+      extend(Game, superClass);
+
+      Game.extend(PropertyMixin);
+
+      Game.include(EventMixin);
+
+      Game.addProperty('score');
+
+      Game.addProperty('moves');
+
+      Game.addProperty('width');
+
+      Game.addProperty('height');
+
+      Game.addProperty('types');
+
+      function Game(options) {
+        this.setOptions(options);
+        this.reset();
+      }
+
+      Game.prototype.reset = function() {
+        return this.score = 0;
+      };
+
+      Game.prototype.setOptions = function(options) {
+        this.height = options.height;
+        this.width = options.width;
+        this.moves = options.moves;
+        this.types = options.types;
+        return this.setTargets(options.targets);
+      };
+
+      Game.prototype.setTargets = function(targets) {
+        var key, results, value;
+        this.counters = {};
+        results = [];
+        for (key in targets) {
+          value = targets[key];
+          results.push(this.counters[key] = new models.CupsCounter(key, value));
+        }
+        return results;
+      };
+
+      return Game;
+
+    })(Module)
+  });
+
+  namespace({
     ui: Counter = (function(superClass) {
       extend(Counter, superClass);
 
@@ -160,23 +263,9 @@
 
       Counter.include(ViewMixin);
 
-      Counter.property('value', {
-        get: function() {
-          return this._value;
-        },
-        set: function(value) {
-          return this.setValue(value);
-        }
-      });
+      Counter.addProperty('value');
 
-      Counter.property('model', {
-        get: function() {
-          return this._model;
-        },
-        set: function(value) {
-          return this.setModel(value);
-        }
-      });
+      Counter.addProperty('model');
 
       function Counter(el, prop1, model) {
         this.prop = prop1;
@@ -225,46 +314,18 @@
 
       CupsCounter.include(ViewMixin);
 
+      CupsCounter.addProperty('score');
+
+      CupsCounter.addProperty('all');
+
+      CupsCounter.addProperty('visible');
+
+      CupsCounter.addProperty('model');
+
       CupsCounter.prototype.ui = {
         score: '.CupScore',
         all: '.All'
       };
-
-      CupsCounter.property('score', {
-        get: function() {
-          return this._score;
-        },
-        set: function(value) {
-          return this.setScore(value);
-        }
-      });
-
-      CupsCounter.property('all', {
-        get: function() {
-          return this._all;
-        },
-        set: function(value) {
-          return this.setAll(value);
-        }
-      });
-
-      CupsCounter.property('visible', {
-        get: function() {
-          return this._visible;
-        },
-        set: function(value) {
-          return this.setVisible(value);
-        }
-      });
-
-      CupsCounter.property('model', {
-        get: function() {
-          return this._model;
-        },
-        set: function(value) {
-          return this.setModel(value);
-        }
-      });
 
       function CupsCounter(el, model) {
         this.setElement(el);
@@ -328,8 +389,8 @@
           return this._model;
         }
         this.all = this._model.all;
-        this.score = this._model.all;
-        this.visible = this._model.all;
+        this.score = this._model.score;
+        this.visible = true;
         ref1 = this._handlers;
         for (key in ref1) {
           value = ref1[key];
@@ -353,18 +414,11 @@
 
       CupsCounters.include(ViewMixin);
 
+      CupsCounters.addProperty('model');
+
       CupsCounters.prototype.ui = {
         counters: '.CupsCounter'
       };
-
-      CupsCounters.property('model', {
-        get: function() {
-          return this._model;
-        },
-        set: function(value) {
-          return this.setModel(value);
-        }
-      });
 
       function CupsCounters(el, model) {
         this.setElement(el);
@@ -425,8 +479,19 @@
   });
 
   $(function() {
-    window.field = new ui.Field;
-    return console.log(field);
+    var config;
+    config = {
+      width: 6,
+      height: 6,
+      moves: 40,
+      types: ['red', 'green', 'blue', 'yellow'],
+      targets: {
+        red: 10,
+        green: 10,
+        blue: 10
+      }
+    };
+    return console.log(new ui.Field(new models.Game(config)));
   });
 
 }).call(this);

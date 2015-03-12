@@ -4,25 +4,14 @@ namespace ui:
     @extend PropertyMixin
     @include ViewMixin
 
+    @addProperty 'score'
+    @addProperty 'all'
+    @addProperty 'visible'
+    @addProperty 'model'
+
     ui:
       score: '.CupScore'
       all: '.All'
-
-    @property 'score',
-      get: -> @_score
-      set: (value) -> @setScore(value)
-
-    @property 'all',
-      get: -> @_all
-      set: (value) -> @setAll(value)
-
-    @property 'visible',
-      get: -> @_visible
-      set: (value) -> @setVisible(value)
-
-    @property 'model',
-      get: -> @_model
-      set: (value) -> @setModel(value)
 
     constructor: (el, model) ->
       @setElement el
@@ -72,8 +61,8 @@ namespace ui:
         return @_model
 
       @all     = @_model.all
-      @score   = @_model.all
-      @visible = @_model.all
+      @score   = @_model.score
+      @visible = true
 
       # bind
       for key, value of @_handlers

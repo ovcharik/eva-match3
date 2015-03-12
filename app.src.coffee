@@ -77,6 +77,25 @@ PropertyMixin =
   property: (prop, options) ->
     Object.defineProperty @prototype, prop, options
 
+  addProperty: (name) ->
+    @property name,
+      get: -> @["_#{name}"]
+      set: (value) ->
+        if @["set#{name.capitalize()}"]?
+          @["set#{name.capitalize()}"](value)
+        else
+          @setProp(name, value)
+
+  extended: ->
+    @::setProp = (name, value) ->
+      if @["_#{name}"] != value
+        @["_#{name}"] = value
+        @trigger? "change:#{name}", @["_#{name}"]
+      @["_#{name}"]
+
+String::capitalize = ->
+  @charAt(0).toUpperCase() + @slice(1)
+
 @ViewMixin =
   $: (args...) ->
     if @$el
@@ -95,19 +114,59 @@ PropertyMixin =
       tmp = @ui["$#{key}"] = @$(value)
       @ui[key] = tmp[0]
 
+namespace models:
+  class CupsCounter extends Module
+    @extend PropertyMixin
+    @include EventMixin
+
+    @addProperty 'all'
+    @addProperty 'score'
+
+    constructor: (@name, all) ->
+      @all = all
+      @score = 0
+
+namespace models:
+  class Game extends Module
+    @extend PropertyMixin
+    @include EventMixin
+
+    @addProperty 'score'
+    @addProperty 'moves'
+    @addProperty 'width'
+    @addProperty 'height'
+    @addProperty 'types'
+
+    constructor: (options) ->
+      @setOptions(options)
+      @reset()
+
+    reset: ->
+      @score = 0
+
+    setOptions: (options) ->
+      @height = options.height
+      @width  = options.width
+
+      @moves = options.moves
+      @types = options.types
+
+      @setTargets options.targets
+
+    setTargets: (targets) ->
+      @counters = {}
+      for key, value of targets
+        @counters[key] = new models.CupsCounter key, value
+
+
 namespace ui:
 
   class Counter extends Module
     @extend PropertyMixin
     @include ViewMixin
 
-    @property 'value',
-      get: -> @_value
-      set: (value) -> @setValue(value)
-
-    @property 'model',
-      get: -> @_model
-      set: (value) -> @setModel(value)
+    @addProperty 'value'
+    @addProperty 'model'
 
     constructor: (el, @prop, model) ->
       @setElement el
@@ -137,25 +196,14 @@ namespace ui:
     @extend PropertyMixin
     @include ViewMixin
 
+    @addProperty 'score'
+    @addProperty 'all'
+    @addProperty 'visible'
+    @addProperty 'model'
+
     ui:
       score: '.CupScore'
       all: '.All'
-
-    @property 'score',
-      get: -> @_score
-      set: (value) -> @setScore(value)
-
-    @property 'all',
-      get: -> @_all
-      set: (value) -> @setAll(value)
-
-    @property 'visible',
-      get: -> @_visible
-      set: (value) -> @setVisible(value)
-
-    @property 'model',
-      get: -> @_model
-      set: (value) -> @setModel(value)
 
     constructor: (el, model) ->
       @setElement el
@@ -205,8 +253,8 @@ namespace ui:
         return @_model
 
       @all     = @_model.all
-      @score   = @_model.all
-      @visible = @_model.all
+      @score   = @_model.score
+      @visible = true
 
       # bind
       for key, value of @_handlers
@@ -220,12 +268,10 @@ namespace ui:
     @extend PropertyMixin
     @include ViewMixin
 
+    @addProperty 'model'
+
     ui:
       counters: '.CupsCounter'
-
-    @property 'model',
-      get: -> @_model
-      set: (value) -> @setModel(value)
 
     constructor: (el, model) ->
       @setElement el
@@ -264,5 +310,16 @@ namespace ui:
       @score = new ui.Counter(@ui.score, 'score', model)
 
 $ ->
-  window.field = new ui.Field
-  console.log field
+  config =
+    width:  6
+    height: 6
+
+    moves: 40
+    types: ['red', 'green', 'blue', 'yellow']
+
+    targets:
+      red:   10
+      green: 10
+      blue:  10
+
+  console.log new ui.Field new models.Game config

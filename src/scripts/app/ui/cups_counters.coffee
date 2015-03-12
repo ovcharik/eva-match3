@@ -4,12 +4,10 @@ namespace ui:
     @extend PropertyMixin
     @include ViewMixin
 
+    @addProperty 'model'
+
     ui:
       counters: '.CupsCounter'
-
-    @property 'model',
-      get: -> @_model
-      set: (value) -> @setModel(value)
 
     constructor: (el, model) ->
       @setElement el

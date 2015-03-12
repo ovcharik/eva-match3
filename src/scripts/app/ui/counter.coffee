@@ -4,13 +4,8 @@ namespace ui:
     @extend PropertyMixin
     @include ViewMixin
 
-    @property 'value',
-      get: -> @_value
-      set: (value) -> @setValue(value)
-
-    @property 'model',
-      get: -> @_model
-      set: (value) -> @setModel(value)
+    @addProperty 'value'
+    @addProperty 'model'
 
     constructor: (el, @prop, model) ->
       @setElement el
