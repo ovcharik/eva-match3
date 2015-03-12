@@ -1,1 +1,123 @@
 @import "css3_mixins";
+
+$color-base: #E0E0E0;
+$color-base-bright: #FFFFFF;
+
+$color-primary:   #1B2024; // gray
+$color-secondary: #FF5346; // red
+$color-tertiary:  #81AA21; // green
+
+$color-cup-red: #F15A5A;
+$color-cup-yellow: #F0C419;
+$color-cup-green: #4EBA6F;
+$color-cup-blue: #2D95BF;
+$color-cup-magenta: #955BA5;
+
+html, body {
+  padding: 0;
+  margin: 0;
+  height: 100%;
+  background: $color-base;
+  color: $color-primary;
+}
+
+div, canvas {
+  position: relative;
+  @include box-sizing(border-box);
+}
+
+$header-height: 60px;
+$field-size: 600px;
+$canvas-size: 80%;
+
+.pull-right { float: right; }
+.pull-left  { float: left; }
+
+.wrapper {
+  position: absolute;
+
+  width:  $field-size;
+  height: $field-size + $header-height;
+
+  margin: auto;
+
+  top:    0;
+  left:   0;
+  bottom: 0;
+  right:  0;
+
+  .header {
+    height: $header-height;
+    background: darken($color-secondary, 50%);
+
+    .counter {
+      height: 100%;
+      width: 20%;
+      background: lighten($color-secondary, 30%);
+      text-align: center;
+
+      @include border-radius(0 0 15px 0);
+      &.pull-right {
+        @include border-radius(0 0 0 15px);
+      }
+
+      .value {
+        font-size: 32px;
+      }
+    }
+
+    .cups-counter {
+      width: 60%;
+      height: 100%;
+      text-align: center;
+      line-height: 100%;
+      color: $color-base;
+
+      .cup-counter {
+        display: inline-block;
+        padding-top: 5px;
+        margin: 0 10px;
+
+        .cup {
+          width: 30px;
+          height: 30px;
+          margin: 0 auto 5px;
+          background: $color-base;
+          border: 5px solid;
+          @include border-radius(50%);
+
+          &.red     { background: $color-cup-red;     border-color: darken($color-cup-red     , 15%); }
+          &.yellow  { background: $color-cup-yellow;  border-color: darken($color-cup-yellow  , 15%); }
+          &.green   { background: $color-cup-green;   border-color: darken($color-cup-green   , 15%); }
+          &.blue    { background: $color-cup-blue;    border-color: darken($color-cup-blue    , 15%); }
+          &.magenta { background: $color-cup-magenta; border-color: darken($color-cup-magenta , 15%); }
+        }
+      }
+    }
+  }
+}
+
+.field {
+
+  width:  $field-size;
+  height: $field-size;
+
+  background: $color-base-bright;
+
+  .field-canvas {
+    position: absolute;
+    display:  block;
+
+    height: $canvas-size;
+    width:  $canvas-size;
+
+    margin: auto;
+
+    top:    0;
+    left:   0;
+    bottom: 0;
+    right:  0;
+
+    background: $color-base;
+  }
+}

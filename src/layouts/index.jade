@@ -1,3 +1,13 @@
+mixin cup(color, name)
+  .cup-counter.Cup(class=name)
+    .cup(class=color)
+    .cup-score
+      span.Score 0
+      | /
+      span.All 0
+  
+
+
 doctype html
 html
   head
@@ -8,5 +18,25 @@ html
     script(src='app.js')
     script(src='templates.js')
 
-    title Title
+    title EvaStudio test task: Match3
 
+  body
+    .wrapper
+      .header
+        .counter.pull-right
+          .value.Score 0
+          .label Score
+
+        .cups-counter.pull-right
+          +cup('red', 'Red')
+          +cup('yellow', 'Yellow')
+          +cup('green', 'Green')
+          +cup('blue', 'Blue')
+          +cup('magenta', 'Magenta')
+
+        .counter
+          .value.Moves 0
+          .label Moves
+
+      .field
+        canvas.field-canvas#canvas
