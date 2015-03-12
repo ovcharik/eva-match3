@@ -133,21 +133,21 @@ namespace models:
     checkDone: ->
       @done = @all <= @score
 
-
 namespace models:
   class Game extends Module
     @extend PropertyMixin
     @include EventMixin
 
     @addProperty 'score'
-    @addProperty 'moves'
+    @addProperty 'moves', 'checkFail'
     @addProperty 'width'
     @addProperty 'height'
     @addProperty 'types'
     @addProperty 'win'
+    @addProperty 'fail'
 
     constructor: (options) ->
-      @checkWinHandler = _.bind @checkWin, @
+      @checkWinHandler  = _.bind @checkWin, @
 
       @setOptions(options)
       @reset()
@@ -155,6 +155,7 @@ namespace models:
     reset: ->
       @score = 0
       @win = false
+      @fail = false
 
     setOptions: (options) ->
       @height = options.height
@@ -179,6 +180,8 @@ namespace models:
         w &&= value.done
       @win = w
 
+    checkFail: ->
+      @fail = @fail || @score == 0
 
 namespace ui:
 
@@ -329,6 +332,16 @@ namespace ui:
       @cupCounters = new ui.CupsCounters(@ui.counters, @game)
       @moves = new ui.Counter(@ui.moves, 'moves', @game)
       @score = new ui.Counter(@ui.score, 'score', @game)
+
+      @game.on 'change:win', (win) =>
+        if win
+          alert('Win!')
+          window.location = window.location
+
+      @game.on 'change:fail', (fail) =>
+        if fail
+          alert('Fail!')
+          window.location = window.location
 
 $ ->
   config =

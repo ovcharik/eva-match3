@@ -83,6 +83,10 @@ $canvas-size: 80%;
           .cup-score {
             display: none;
           }
+
+          .cup {
+            border: 15px solid;
+          }
         }
 
         .cup {
@@ -92,6 +96,7 @@ $canvas-size: 80%;
           background: $color-base;
           border: 5px solid;
           @include border-radius(50%);
+          @include transition(all 200ms);
 
           &.red     { background: $color-cup-red;     border-color: darken($color-cup-red     , 15%); }
           &.yellow  { background: $color-cup-yellow;  border-color: darken($color-cup-yellow  , 15%); }

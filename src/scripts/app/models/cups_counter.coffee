@@ -13,4 +13,3 @@ namespace models:
 
     checkDone: ->
       @done = @all <= @score
-

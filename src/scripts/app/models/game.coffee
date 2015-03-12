@@ -4,14 +4,15 @@ namespace models:
     @include EventMixin
 
     @addProperty 'score'
-    @addProperty 'moves'
+    @addProperty 'moves', 'checkFail'
     @addProperty 'width'
     @addProperty 'height'
     @addProperty 'types'
     @addProperty 'win'
+    @addProperty 'fail'
 
     constructor: (options) ->
-      @checkWinHandler = _.bind @checkWin, @
+      @checkWinHandler  = _.bind @checkWin, @
 
       @setOptions(options)
       @reset()
@@ -19,6 +20,7 @@ namespace models:
     reset: ->
       @score = 0
       @win = false
+      @fail = false
 
     setOptions: (options) ->
       @height = options.height
@@ -43,3 +45,5 @@ namespace models:
         w &&= value.done
       @win = w
 
+    checkFail: ->
+      @fail = @fail || @score == 0

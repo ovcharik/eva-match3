@@ -226,7 +226,7 @@
 
       Game.addProperty('score');
 
-      Game.addProperty('moves');
+      Game.addProperty('moves', 'checkFail');
 
       Game.addProperty('width');
 
@@ -236,6 +236,8 @@
 
       Game.addProperty('win');
 
+      Game.addProperty('fail');
+
       function Game(options) {
         this.checkWinHandler = _.bind(this.checkWin, this);
         this.setOptions(options);
@@ -244,7 +246,8 @@
 
       Game.prototype.reset = function() {
         this.score = 0;
-        return this.win = false;
+        this.win = false;
+        return this.fail = false;
       };
 
       Game.prototype.setOptions = function(options) {
@@ -283,6 +286,10 @@
           w && (w = value.done);
         }
         return this.win = w;
+      };
+
+      Game.prototype.checkFail = function() {
+        return this.fail = this.fail || this.score === 0;
       };
 
       return Game;
@@ -515,6 +522,22 @@
         this.cupCounters = new ui.CupsCounters(this.ui.counters, this.game);
         this.moves = new ui.Counter(this.ui.moves, 'moves', this.game);
         this.score = new ui.Counter(this.ui.score, 'score', this.game);
+        this.game.on('change:win', (function(_this) {
+          return function(win) {
+            if (win) {
+              alert('Win!');
+              return window.location = window.location;
+            }
+          };
+        })(this));
+        this.game.on('change:fail', (function(_this) {
+          return function(fail) {
+            if (fail) {
+              alert('Fail!');
+              return window.location = window.location;
+            }
+          };
+        })(this));
       }
 
       return Field;
