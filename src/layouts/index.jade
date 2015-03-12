@@ -1,12 +1,10 @@
 mixin cup(color, name)
-  .cup-counter.Cup(class=name)
+  .cup-counter.CupsCounter(data-name=name)
     .cup(class=color)
     .cup-score
-      span.Score 0
+      span.CupScore 0
       | /
       span.All 0
-  
-
 
 doctype html
 html
@@ -27,7 +25,7 @@ html
           .value.Score 0
           .label Score
 
-        .cups-counter.pull-right
+        .cups-counter.pull-right.CupsCounters
           +cup('red', 'Red')
           +cup('yellow', 'Yellow')
           +cup('green', 'Green')
@@ -39,4 +37,4 @@ html
           .label Moves
 
       .field
-        canvas.field-canvas#canvas
+        canvas.field-canvas.Canvas
