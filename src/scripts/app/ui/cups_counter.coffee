@@ -4,9 +4,10 @@ namespace ui:
     @extend PropertyMixin
     @include ViewMixin
 
-    @addProperty 'score'
-    @addProperty 'all'
-    @addProperty 'visible'
+    @addProperty 'score',   'scoreCallback'
+    @addProperty 'all',     'allCallback'
+    @addProperty 'done',    'doneCallback'
+    @addProperty 'visible', 'visibleCallback'
     @addProperty 'model'
 
     ui:
@@ -24,29 +25,26 @@ namespace ui:
     hide: ->
       @$el.hide()
 
-    setScore: (value) ->
-      @_score = Number(value)
-      @ui.$score.text @_score
-      @_score
+    scoreCallback: ->
+      @ui.$score.text @score
 
-    setAll: (value) ->
-      @_all = Number(value)
-      @ui.$all.text @_all
-      @_all
+    allCallback: ->
+      @ui.$all.text @all
 
-    setVisible: (value) ->
-      @_visible = Boolean(value)
-      if @_visible
+    doneCallback: ->
+      @$el.toggleClass('done', @done)
+
+    visibleCallback: ->
+      if @visible
         @show()
       else
         @hide()
-      @_visible
 
     setModel: (model) ->
       @_handlers ?=
-        score:   _.bind @setScore, @
-        all:     _.bind @setAll, @
-        visible: _.bind @setVisible, @
+        score:   _.bind ((value) -> @score = value), @
+        all:     _.bind ((value) -> @all   = value), @
+        done:    _.bind ((value) -> @done  = value), @
 
       # unbind
       if @_model
@@ -57,11 +55,13 @@ namespace ui:
       unless @_model
         @all     = 0
         @score   = 0
+        @done    = false
         @visible = false
         return @_model
 
       @all     = @_model.all
       @score   = @_model.score
+      @done    = @_model.done
       @visible = true
 
       # bind

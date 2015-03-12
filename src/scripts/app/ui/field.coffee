@@ -9,9 +9,9 @@ namespace ui:
       counters: '.CupsCounters'
       canvas:   '.Canvas'
 
-    constructor: (model) ->
+    constructor: (@game) ->
       @setUI()
 
-      @cupCounters = new ui.CupsCounters(@ui.counters, model)
-      @moves = new ui.Counter(@ui.moves, 'moves', model)
-      @score = new ui.Counter(@ui.score, 'score', model)
+      @cupCounters = new ui.CupsCounters(@ui.counters, @game)
+      @moves = new ui.Counter(@ui.moves, 'moves', @game)
+      @score = new ui.Counter(@ui.score, 'score', @game)

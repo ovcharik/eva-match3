@@ -2,14 +2,17 @@ PropertyMixin =
   property: (prop, options) ->
     Object.defineProperty @prototype, prop, options
 
-  addProperty: (name) ->
+  addProperty: (name, setCallback) ->
     @property name,
       get: -> @["_#{name}"]
       set: (value) ->
-        if @["set#{name.capitalize()}"]?
-          @["set#{name.capitalize()}"](value)
+        n = "set#{name.capitalize()}"
+        if @[n]?
+          r = @[n](value)
         else
-          @setProp(name, value)
+          r = @setProp(name, value)
+        @[setCallback]?() if setCallback
+        r
 
   extended: ->
     @::setProp = (name, value) ->

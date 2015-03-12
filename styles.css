@@ -63,8 +63,11 @@ div, canvas {
       color: #E0E0E0; }
       .wrapper .header .cups-counter .cup-counter {
         display: inline-block;
+        vertical-align: top;
         padding-top: 5px;
         margin: 0 10px; }
+        .wrapper .header .cups-counter .cup-counter.done .cup-score {
+          display: none; }
         .wrapper .header .cups-counter .cup-counter .cup {
           width: 30px;
           height: 30px;

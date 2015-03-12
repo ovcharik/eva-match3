@@ -75,8 +75,15 @@ $canvas-size: 80%;
 
       .cup-counter {
         display: inline-block;
+        vertical-align: top;
         padding-top: 5px;
         margin: 0 10px;
+
+        &.done {
+          .cup-score {
+            display: none;
+          }
+        }
 
         .cup {
           width: 30px;

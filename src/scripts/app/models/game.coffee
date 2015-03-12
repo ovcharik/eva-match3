@@ -8,13 +8,17 @@ namespace models:
     @addProperty 'width'
     @addProperty 'height'
     @addProperty 'types'
+    @addProperty 'win'
 
     constructor: (options) ->
+      @checkWinHandler = _.bind @checkWin, @
+
       @setOptions(options)
       @reset()
 
     reset: ->
       @score = 0
+      @win = false
 
     setOptions: (options) ->
       @height = options.height
@@ -26,7 +30,16 @@ namespace models:
       @setTargets options.targets
 
     setTargets: (targets) ->
-      @counters = {}
+      if @targets
+        value.off('change:done', @checkWinHandler) for key, value of @targets
+      @counters = @targets = {}
       for key, value of targets
-        @counters[key] = new models.CupsCounter key, value
+        @targets[key] = new models.CupsCounter key, value
+        @targets[key].on? 'change:done', @checkWinHandler
+
+    checkWin: ->
+      w = true
+      for key, value of @targets
+        w &&= value.done
+      @win = w
 

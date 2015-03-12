@@ -39,9 +39,7 @@
       ref = this._getHandlers(name);
       for (j = 0, len = ref.length; j < len; j++) {
         cb = ref[j];
-        if (cb.apply(this, args) === false) {
-          return;
-        }
+        cb.apply(this, args);
       }
     }
   };
@@ -121,17 +119,25 @@
     property: function(prop, options) {
       return Object.defineProperty(this.prototype, prop, options);
     },
-    addProperty: function(name) {
+    addProperty: function(name, setCallback) {
       return this.property(name, {
         get: function() {
           return this["_" + name];
         },
         set: function(value) {
-          if (this["set" + (name.capitalize())] != null) {
-            return this["set" + (name.capitalize())](value);
+          var n, r;
+          n = "set" + (name.capitalize());
+          if (this[n] != null) {
+            r = this[n](value);
           } else {
-            return this.setProp(name, value);
+            r = this.setProp(name, value);
           }
+          if (setCallback) {
+            if (typeof this[setCallback] === "function") {
+              this[setCallback]();
+            }
+          }
+          return r;
         }
       });
     },
@@ -189,15 +195,21 @@
 
       CupsCounter.include(EventMixin);
 
-      CupsCounter.addProperty('all');
+      CupsCounter.addProperty('all', 'checkDone');
 
-      CupsCounter.addProperty('score');
+      CupsCounter.addProperty('score', 'checkDone');
+
+      CupsCounter.addProperty('done');
 
       function CupsCounter(name1, all) {
         this.name = name1;
         this.all = all;
         this.score = 0;
       }
+
+      CupsCounter.prototype.checkDone = function() {
+        return this.done = this.all <= this.score;
+      };
 
       return CupsCounter;
 
@@ -222,13 +234,17 @@
 
       Game.addProperty('types');
 
+      Game.addProperty('win');
+
       function Game(options) {
+        this.checkWinHandler = _.bind(this.checkWin, this);
         this.setOptions(options);
         this.reset();
       }
 
       Game.prototype.reset = function() {
-        return this.score = 0;
+        this.score = 0;
+        return this.win = false;
       };
 
       Game.prototype.setOptions = function(options) {
@@ -240,14 +256,33 @@
       };
 
       Game.prototype.setTargets = function(targets) {
-        var key, results, value;
-        this.counters = {};
+        var base, key, ref, results, value;
+        if (this.targets) {
+          ref = this.targets;
+          for (key in ref) {
+            value = ref[key];
+            value.off('change:done', this.checkWinHandler);
+          }
+        }
+        this.counters = this.targets = {};
         results = [];
         for (key in targets) {
           value = targets[key];
-          results.push(this.counters[key] = new models.CupsCounter(key, value));
+          this.targets[key] = new models.CupsCounter(key, value);
+          results.push(typeof (base = this.targets[key]).on === "function" ? base.on('change:done', this.checkWinHandler) : void 0);
         }
         return results;
+      };
+
+      Game.prototype.checkWin = function() {
+        var key, ref, value, w;
+        w = true;
+        ref = this.targets;
+        for (key in ref) {
+          value = ref[key];
+          w && (w = value.done);
+        }
+        return this.win = w;
       };
 
       return Game;
@@ -314,11 +349,13 @@
 
       CupsCounter.include(ViewMixin);
 
-      CupsCounter.addProperty('score');
+      CupsCounter.addProperty('score', 'scoreCallback');
 
-      CupsCounter.addProperty('all');
+      CupsCounter.addProperty('all', 'allCallback');
 
-      CupsCounter.addProperty('visible');
+      CupsCounter.addProperty('done', 'doneCallback');
+
+      CupsCounter.addProperty('visible', 'visibleCallback');
 
       CupsCounter.addProperty('model');
 
@@ -341,35 +378,39 @@
         return this.$el.hide();
       };
 
-      CupsCounter.prototype.setScore = function(value) {
-        this._score = Number(value);
-        this.ui.$score.text(this._score);
-        return this._score;
+      CupsCounter.prototype.scoreCallback = function() {
+        return this.ui.$score.text(this.score);
       };
 
-      CupsCounter.prototype.setAll = function(value) {
-        this._all = Number(value);
-        this.ui.$all.text(this._all);
-        return this._all;
+      CupsCounter.prototype.allCallback = function() {
+        return this.ui.$all.text(this.all);
       };
 
-      CupsCounter.prototype.setVisible = function(value) {
-        this._visible = Boolean(value);
-        if (this._visible) {
-          this.show();
+      CupsCounter.prototype.doneCallback = function() {
+        return this.$el.toggleClass('done', this.done);
+      };
+
+      CupsCounter.prototype.visibleCallback = function() {
+        if (this.visible) {
+          return this.show();
         } else {
-          this.hide();
+          return this.hide();
         }
-        return this._visible;
       };
 
       CupsCounter.prototype.setModel = function(model) {
         var base, base1, key, ref, ref1, value;
         if (this._handlers == null) {
           this._handlers = {
-            score: _.bind(this.setScore, this),
-            all: _.bind(this.setAll, this),
-            visible: _.bind(this.setVisible, this)
+            score: _.bind((function(value) {
+              return this.score = value;
+            }), this),
+            all: _.bind((function(value) {
+              return this.all = value;
+            }), this),
+            done: _.bind((function(value) {
+              return this.done = value;
+            }), this)
           };
         }
         if (this._model) {
@@ -385,11 +426,13 @@
         if (!this._model) {
           this.all = 0;
           this.score = 0;
+          this.done = false;
           this.visible = false;
           return this._model;
         }
         this.all = this._model.all;
         this.score = this._model.score;
+        this.done = this._model.done;
         this.visible = true;
         ref1 = this._handlers;
         for (key in ref1) {
@@ -466,11 +509,12 @@
         canvas: '.Canvas'
       };
 
-      function Field(model) {
+      function Field(game) {
+        this.game = game;
         this.setUI();
-        this.cupCounters = new ui.CupsCounters(this.ui.counters, model);
-        this.moves = new ui.Counter(this.ui.moves, 'moves', model);
-        this.score = new ui.Counter(this.ui.score, 'score', model);
+        this.cupCounters = new ui.CupsCounters(this.ui.counters, this.game);
+        this.moves = new ui.Counter(this.ui.moves, 'moves', this.game);
+        this.score = new ui.Counter(this.ui.score, 'score', this.game);
       }
 
       return Field;
@@ -491,7 +535,7 @@
         blue: 10
       }
     };
-    return console.log(new ui.Field(new models.Game(config)));
+    return window.field = new ui.Field(new models.Game(config));
   });
 
 }).call(this);

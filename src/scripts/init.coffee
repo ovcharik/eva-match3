@@ -11,4 +11,4 @@ $ ->
       green: 10
       blue:  10
 
-  console.log new ui.Field new models.Game config
+  window.field = new ui.Field new models.Game config

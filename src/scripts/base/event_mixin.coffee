@@ -24,5 +24,5 @@
 
   trigger: (name, args...) ->
     for cb in @_getHandlers(name)
-      return if cb.apply(@, args) == false
+      cb.apply(@, args)
     return

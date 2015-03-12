@@ -24,7 +24,7 @@
 
   trigger: (name, args...) ->
     for cb in @_getHandlers(name)
-      return if cb.apply(@, args) == false
+      cb.apply(@, args)
     return
 
 moduleKeywords = ['extended', 'included']
@@ -77,14 +77,17 @@ PropertyMixin =
   property: (prop, options) ->
     Object.defineProperty @prototype, prop, options
 
-  addProperty: (name) ->
+  addProperty: (name, setCallback) ->
     @property name,
       get: -> @["_#{name}"]
       set: (value) ->
-        if @["set#{name.capitalize()}"]?
-          @["set#{name.capitalize()}"](value)
+        n = "set#{name.capitalize()}"
+        if @[n]?
+          r = @[n](value)
         else
-          @setProp(name, value)
+          r = @setProp(name, value)
+        @[setCallback]?() if setCallback
+        r
 
   extended: ->
     @::setProp = (name, value) ->
@@ -119,12 +122,17 @@ namespace models:
     @extend PropertyMixin
     @include EventMixin
 
-    @addProperty 'all'
-    @addProperty 'score'
+    @addProperty 'all',   'checkDone'
+    @addProperty 'score', 'checkDone'
+    @addProperty 'done'
 
     constructor: (@name, all) ->
       @all = all
       @score = 0
+
+    checkDone: ->
+      @done = @all <= @score
+
 
 namespace models:
   class Game extends Module
@@ -136,13 +144,17 @@ namespace models:
     @addProperty 'width'
     @addProperty 'height'
     @addProperty 'types'
+    @addProperty 'win'
 
     constructor: (options) ->
+      @checkWinHandler = _.bind @checkWin, @
+
       @setOptions(options)
       @reset()
 
     reset: ->
       @score = 0
+      @win = false
 
     setOptions: (options) ->
       @height = options.height
@@ -154,9 +166,18 @@ namespace models:
       @setTargets options.targets
 
     setTargets: (targets) ->
-      @counters = {}
+      if @targets
+        value.off('change:done', @checkWinHandler) for key, value of @targets
+      @counters = @targets = {}
       for key, value of targets
-        @counters[key] = new models.CupsCounter key, value
+        @targets[key] = new models.CupsCounter key, value
+        @targets[key].on? 'change:done', @checkWinHandler
+
+    checkWin: ->
+      w = true
+      for key, value of @targets
+        w &&= value.done
+      @win = w
 
 
 namespace ui:
@@ -196,9 +217,10 @@ namespace ui:
     @extend PropertyMixin
     @include ViewMixin
 
-    @addProperty 'score'
-    @addProperty 'all'
-    @addProperty 'visible'
+    @addProperty 'score',   'scoreCallback'
+    @addProperty 'all',     'allCallback'
+    @addProperty 'done',    'doneCallback'
+    @addProperty 'visible', 'visibleCallback'
     @addProperty 'model'
 
     ui:
@@ -216,29 +238,26 @@ namespace ui:
     hide: ->
       @$el.hide()
 
-    setScore: (value) ->
-      @_score = Number(value)
-      @ui.$score.text @_score
-      @_score
+    scoreCallback: ->
+      @ui.$score.text @score
 
-    setAll: (value) ->
-      @_all = Number(value)
-      @ui.$all.text @_all
-      @_all
+    allCallback: ->
+      @ui.$all.text @all
 
-    setVisible: (value) ->
-      @_visible = Boolean(value)
-      if @_visible
+    doneCallback: ->
+      @$el.toggleClass('done', @done)
+
+    visibleCallback: ->
+      if @visible
         @show()
       else
         @hide()
-      @_visible
 
     setModel: (model) ->
       @_handlers ?=
-        score:   _.bind @setScore, @
-        all:     _.bind @setAll, @
-        visible: _.bind @setVisible, @
+        score:   _.bind ((value) -> @score = value), @
+        all:     _.bind ((value) -> @all   = value), @
+        done:    _.bind ((value) -> @done  = value), @
 
       # unbind
       if @_model
@@ -249,11 +268,13 @@ namespace ui:
       unless @_model
         @all     = 0
         @score   = 0
+        @done    = false
         @visible = false
         return @_model
 
       @all     = @_model.all
       @score   = @_model.score
+      @done    = @_model.done
       @visible = true
 
       # bind
@@ -302,12 +323,12 @@ namespace ui:
       counters: '.CupsCounters'
       canvas:   '.Canvas'
 
-    constructor: (model) ->
+    constructor: (@game) ->
       @setUI()
 
-      @cupCounters = new ui.CupsCounters(@ui.counters, model)
-      @moves = new ui.Counter(@ui.moves, 'moves', model)
-      @score = new ui.Counter(@ui.score, 'score', model)
+      @cupCounters = new ui.CupsCounters(@ui.counters, @game)
+      @moves = new ui.Counter(@ui.moves, 'moves', @game)
+      @score = new ui.Counter(@ui.score, 'score', @game)
 
 $ ->
   config =
@@ -322,4 +343,4 @@ $ ->
       green: 10
       blue:  10
 
-  console.log new ui.Field new models.Game config
+  window.field = new ui.Field new models.Game config
