@@ -10,7 +10,7 @@ namespace models:
     @addProperty 'types'
     @addProperty 'win'
     @addProperty 'fail'
-    @addProperty 'locked'
+    @addProperty 'lock'
 
     constructor: (options) ->
       @checkWinHandler  = _.bind @checkWin, @
@@ -20,12 +20,13 @@ namespace models:
 
       @grid = new models.Grid(@)
       @grid.on 'change', => @trigger 'change:grid'
+      @grid.on 'change:lock', (value) => @lock = value
 
     reset: ->
       @score = 0
       @win = false
       @fail = false
-      @locked = false
+      @lock = false
 
     setOptions: (options) ->
       @height = options.height

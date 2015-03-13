@@ -198,10 +198,19 @@
 
       Cup.include(EventMixin);
 
+      Cup.addProperty('row');
+
+      Cup.addProperty('col');
+
       Cup.addProperty('type');
 
-      function Cup(type) {
+      Cup.addProperty('selected');
+
+      function Cup(row, col, type) {
+        this.row = row;
+        this.col = col;
         this.type = type;
+        this.selected = false;
       }
 
       return Cup;
@@ -260,7 +269,7 @@
 
       Game.addProperty('fail');
 
-      Game.addProperty('locked');
+      Game.addProperty('lock');
 
       function Game(options) {
         this.checkWinHandler = _.bind(this.checkWin, this);
@@ -272,13 +281,18 @@
             return _this.trigger('change:grid');
           };
         })(this));
+        this.grid.on('change:lock', (function(_this) {
+          return function(value) {
+            return _this.lock = value;
+          };
+        })(this));
       }
 
       Game.prototype.reset = function() {
         this.score = 0;
         this.win = false;
         this.fail = false;
-        return this.locked = false;
+        return this.lock = false;
       };
 
       Game.prototype.setOptions = function(options) {
@@ -336,6 +350,8 @@
 
       Grid.include(EventMixin);
 
+      Grid.addProperty('lock');
+
       function Grid(model) {
         this.model = model;
         this.init();
@@ -350,7 +366,7 @@
           ref1 = this.grid[row];
           for (col = k = 0, len1 = ref1.length; k < len1; col = ++k) {
             v = ref1[col];
-            this.grid[row][col] = this.newCup();
+            this.grid[row][col] = this.newCup(row, col);
           }
         }
         return this.trigger('change');
@@ -372,8 +388,15 @@
         return this.model.types[Math.random() * this.model.types.length | 0];
       };
 
-      Grid.prototype.newCup = function() {
-        return new models.Cup(this.randomType());
+      Grid.prototype.newCup = function(row, col) {
+        var cup;
+        cup = new models.Cup(row, col, this.randomType());
+        cup.on('click', (function(_this) {
+          return function() {
+            return _this.onCupClick(cup);
+          };
+        })(this));
+        return cup;
       };
 
       Grid.prototype.eachCups = function(cb) {
@@ -393,6 +416,96 @@
           })());
         }
         return results;
+      };
+
+      Grid.prototype.onCupClick = function(cup) {
+        if (this.lock) {
+          return;
+        }
+        if (this.selected) {
+          if (this.isNear(this.selected, cup)) {
+            this.swap(this.selected, cup);
+            return this.selected = null;
+          } else {
+            cup.selected = !cup.selected;
+            if (cup !== this.selected) {
+              this.selected.selected = false;
+              return this.selected = cup;
+            } else {
+              return this.selected = null;
+            }
+          }
+        } else {
+          cup.selected = !cup.selected;
+          return this.selected = cup;
+        }
+      };
+
+      Grid.prototype.isNear = function(c1, c2) {
+        return (c1.row === c2.row && Math.abs(c1.col - c2.col) === 1) || (c1.col === c2.col && Math.abs(c1.row - c2.row) === 1);
+      };
+
+      Grid.prototype.isRight = function(c1, c2) {
+        return c1 > c2;
+      };
+
+      Grid.prototype.isLeft = function(c1, c2) {
+        return c1 < c2;
+      };
+
+      Grid.prototype.isTop = function(r1, r2) {
+        return r1 < r2;
+      };
+
+      Grid.prototype.isBottom = function(r1, r2) {
+        return r1 > r2;
+      };
+
+      Grid.prototype.hasMatches = function() {
+        return Boolean(Math.random() * 2 | 0);
+      };
+
+      Grid.prototype.swap = function(c1, c2) {
+        var animHandlers;
+        animHandlers = function() {
+          return [_.bind(c1.view.move, c1.view, c2.row, c2.col), _.bind(c2.view.move, c2.view, c1.row, c1.col)];
+        };
+        this.startSwap(c1, c2);
+        return async.parallel(animHandlers(), (function(_this) {
+          return function() {
+            _this.doSwap(c1, c2);
+            if (!_this.hasMatches()) {
+              return async.parallel(animHandlers(), function() {
+                _this.doSwap(c1, c2);
+                return _this.endSwap(c1, c2);
+              });
+            } else {
+              return _this.endSwap(c1, c2);
+            }
+          };
+        })(this));
+      };
+
+      Grid.prototype.startSwap = function(c1, c2) {
+        this.lock = true;
+        c1.selected = true;
+        return c2.selected = true;
+      };
+
+      Grid.prototype.endSwap = function(c1, c2) {
+        c1.selected = false;
+        c2.selected = false;
+        return this.lock = false;
+      };
+
+      Grid.prototype.doSwap = function(c1, c2) {
+        var c, r, ref, ref1, ref2;
+        this.grid[c1.row][c1.col] = c2;
+        this.grid[c2.row][c2.col] = c1;
+        ref = [c2.row, c2.col], r = ref[0], c = ref[1];
+        ref1 = [c1.row, c1.col], c2.row = ref1[0], c2.col = ref1[1];
+        ref2 = [r, c], c1.row = ref2[0], c1.col = ref2[1];
+        return this.trigger('change');
       };
 
       return Grid;
@@ -459,8 +572,8 @@
         var ch, cs, cw, h, w;
         this.width = this.$el.width();
         this.height = this.$el.height();
-        cw = this.width / this.model.width;
-        ch = this.height / this.model.height;
+        cw = this.width / (this.model.width + 2);
+        ch = this.height / (this.model.height + 2);
         cs = cw < ch ? cw : ch;
         w = cs * this.model.width;
         h = cs * this.model.height;
@@ -550,12 +663,25 @@
 
       Cup.include(EventMixin);
 
+      Cup.prototype.anim = {
+        delay: 400,
+        type: createjs.Ease.circInOut
+      };
+
       Cup.prototype.colors = {
         red: "#F15A5A",
         yellow: "#F0C419",
         green: "#4EBA6F",
         blue: "#2D95BF",
         magenta: "#955BA5"
+      };
+
+      Cup.prototype.darkenColors = {
+        red: "#CB3434",
+        yellow: "#CA9E00",
+        green: "#289449",
+        blue: "#076F99",
+        magenta: "#6F357F"
       };
 
       Cup.addProperty('x', 'setShapeX');
@@ -568,15 +694,13 @@
 
       Cup.addProperty('color', 'draw');
 
+      Cup.addProperty('darkenColor', 'draw');
+
       Cup.addProperty('shape', 'draw');
 
-      Cup.addProperty('cellX');
-
-      Cup.addProperty('cellY');
+      Cup.prototype.shadow = new createjs.Shadow('#000', 0, 0, 5, 2);
 
       function Cup(cx, cy, size, model) {
-        this.cellX = cx;
-        this.cellY = cy;
         this.model = model;
         this.size = size;
         this.shape = new createjs.Shape;
@@ -585,20 +709,56 @@
           x: this.x,
           y: this.y
         });
+        this.shape.addEventListener('click', (function(_this) {
+          return function() {
+            return _this.model.trigger('click');
+          };
+        })(this));
+        this.model.on('change:selected', (function(_this) {
+          return function() {
+            return _this.draw();
+          };
+        })(this));
+        this.model.on('change:col', (function(_this) {
+          return function() {
+            return _this.calc();
+          };
+        })(this));
+        this.model.on('change:row', (function(_this) {
+          return function() {
+            return _this.calc();
+          };
+        })(this));
       }
 
+      Cup.prototype.calcX = function(col) {
+        return col * this.size + this.size / 2;
+      };
+
+      Cup.prototype.calcY = function(row) {
+        return row * this.size + this.size / 2;
+      };
+
       Cup.prototype.calc = function() {
-        this.x = this.cellX * this.size + this.size / 2;
-        this.y = this.cellY * this.size + this.size / 2;
+        this.cellX = this.model.col;
+        this.cellY = this.model.row;
+        this.x = this.calcX(this.cellX);
+        this.y = this.calcY(this.cellY);
         this.radius = this.size * 0.7 / 2;
-        return this.color = this.colors[this.model.type];
+        this.color = this.colors[this.model.type];
+        return this.darkenColor = this.darkenColors[this.model.type];
       };
 
       Cup.prototype.draw = function() {
         if (!this.shape) {
           return;
         }
-        return this.shape.graphics.beginFill(this.color).drawCircle(0, 0, this.radius);
+        this.shape.graphics.clear();
+        if (this.model.selected) {
+          return this.shape.graphics.beginFill(this.darkenColor).drawCircle(0, 0, this.radius).beginFill(this.color).drawCircle(0, 0, this.radius * 0.70);
+        } else {
+          return this.shape.graphics.beginFill(this.color).drawCircle(0, 0, this.radius);
+        }
       };
 
       Cup.prototype.setShapeX = function() {
@@ -609,6 +769,16 @@
       Cup.prototype.setShapeY = function() {
         var ref;
         return (ref = this.shape) != null ? ref.y = this.y : void 0;
+      };
+
+      Cup.prototype.move = function(col, row, cb) {
+        var x, y;
+        x = this.calcX(row);
+        y = this.calcY(col);
+        return createjs.Tween.get(this.shape).to({
+          x: x,
+          y: y
+        }, this.anim.delay, this.anim.type).call(cb);
       };
 
       return Cup;

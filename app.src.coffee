@@ -123,9 +123,16 @@ namespace models:
     @extend PropertyMixin
     @include EventMixin
 
+    @addProperty 'row'
+    @addProperty 'col'
     @addProperty 'type'
+    @addProperty 'selected'
 
-    constructor: (@type) ->
+    constructor: (row, col, type) ->
+      @row = row
+      @col = col
+      @type = type
+      @selected = false
 
 namespace models:
   class CupsCounter extends Module
@@ -155,7 +162,7 @@ namespace models:
     @addProperty 'types'
     @addProperty 'win'
     @addProperty 'fail'
-    @addProperty 'locked'
+    @addProperty 'lock'
 
     constructor: (options) ->
       @checkWinHandler  = _.bind @checkWin, @
@@ -165,12 +172,13 @@ namespace models:
 
       @grid = new models.Grid(@)
       @grid.on 'change', => @trigger 'change:grid'
+      @grid.on 'change:lock', (value) => @lock = value
 
     reset: ->
       @score = 0
       @win = false
       @fail = false
-      @locked = false
+      @lock = false
 
     setOptions: (options) ->
       @height = options.height
@@ -203,6 +211,8 @@ namespace models:
     @extend PropertyMixin
     @include EventMixin
 
+    @addProperty 'lock'
+
     constructor: (model) ->
       @model = model
       @init()
@@ -211,7 +221,7 @@ namespace models:
       @empty()
       for v, row in @grid
         for v, col in @grid[row]
-          @grid[row][col] = @newCup()
+          @grid[row][col] = @newCup(row, col)
       @trigger 'change'
 
     empty: ->
@@ -222,13 +232,78 @@ namespace models:
     randomType: ->
       @model.types[ Math.random() * @model.types.length | 0 ]
 
-    newCup: ->
-      new models.Cup(@randomType())
+    newCup: (row, col) ->
+      cup = new models.Cup(row, col, @randomType())
+      cup.on 'click',  => @onCupClick(cup)
+      cup
 
     eachCups: (cb) ->
       for row, y in @grid
         for cup, x in row
           cb?(cup, x, y)
+
+    onCupClick: (cup) ->
+      return if @lock
+      if @selected
+        if @isNear(@selected, cup)
+          @swap(@selected, cup)
+          @selected = null
+        else
+          cup.selected = !cup.selected
+          if cup != @selected
+            @selected.selected = false
+            @selected = cup
+          else
+            @selected = null
+      else
+        cup.selected = !cup.selected
+        @selected = cup
+
+    isNear: (c1, c2) ->
+      (c1.row == c2.row && Math.abs(c1.col - c2.col) == 1) ||
+      (c1.col == c2.col && Math.abs(c1.row - c2.row) == 1)
+
+    isRight : (c1, c2) -> c1 > c2
+    isLeft  : (c1, c2) -> c1 < c2
+    isTop   : (r1, r2) -> r1 < r2
+    isBottom: (r1, r2) -> r1 > r2
+
+    hasMatches: ->
+      Boolean(Math.random() * 2 | 0)
+
+    swap: (c1, c2) ->
+      animHandlers = -> [
+        _.bind c1.view.move, c1.view, c2.row, c2.col #TODO
+        _.bind c2.view.move, c2.view, c1.row, c1.col #TODO
+      ]
+
+      @startSwap c1, c2
+      async.parallel animHandlers(), =>
+        @doSwap c1, c2
+        unless @hasMatches()
+          async.parallel animHandlers(), =>
+            @doSwap  c1, c2
+            @endSwap c1, c2
+        else
+          @endSwap c1, c2
+
+    startSwap: (c1, c2) ->
+      @lock = true
+      c1.selected = true
+      c2.selected = true
+
+    endSwap: (c1, c2) ->
+      c1.selected = false
+      c2.selected = false
+      @lock = false
+
+    doSwap: (c1, c2) ->
+      @grid[c1.row][c1.col] = c2
+      @grid[c2.row][c2.col] = c1
+      [r, c] = [c2.row, c2.col]
+      [c2.row, c2.col] = [c1.row, c1.col]
+      [c1.row, c1.col] = [r, c]
+      @trigger 'change'
 
 namespace ui:
   class Canvas extends Module
@@ -270,8 +345,8 @@ namespace ui:
       @width  = @$el.width()
       @height = @$el.height()
 
-      cw = @width  / @model.width
-      ch = @height / @model.height
+      cw = @width  / (@model.width + 2)
+      ch = @height / (@model.height + 2)
       cs = if cw < ch then cw else ch
 
       w = cs * @model.width
@@ -329,6 +404,10 @@ namespace ui:
     @extend PropertyMixin
     @include EventMixin
 
+    anim:
+      delay: 400
+      type: createjs.Ease.circInOut
+
     colors:
       red     : "#F15A5A"
       yellow  : "#F0C419"
@@ -336,18 +415,24 @@ namespace ui:
       blue    : "#2D95BF"
       magenta : "#955BA5"
 
+    darkenColors:
+      red     : "#CB3434"
+      yellow  : "#CA9E00"
+      green   : "#289449"
+      blue    : "#076F99"
+      magenta : "#6F357F"
+
     @addProperty 'x', 'setShapeX'
     @addProperty 'y', 'setShapeY'
     @addProperty 'size', 'calc'
     @addProperty 'radius', 'draw'
     @addProperty 'color', 'draw'
+    @addProperty 'darkenColor', 'draw'
     @addProperty 'shape', 'draw'
-    @addProperty 'cellX'
-    @addProperty 'cellY'
+
+    shadow: new createjs.Shadow('#000', 0, 0, 5, 2)
 
     constructor: (cx, cy, size, model) ->
-      @cellX = cx
-      @cellY = cy
       @model = model
       @size = size
 
@@ -357,23 +442,50 @@ namespace ui:
         x: @x
         y: @y
 
+      @shape.addEventListener 'click', => @model.trigger 'click'
+
+      @model.on 'change:selected', => @draw()
+      @model.on 'change:col', => @calc()
+      @model.on 'change:row', => @calc()
+
+    calcX: (col) -> col * @size + @size / 2
+    calcY: (row) -> row * @size + @size / 2
+
     calc: ->
-      @x = @cellX * @size + @size / 2
-      @y = @cellY * @size + @size / 2
+      @cellX = @model.col
+      @cellY = @model.row
+      @x = @calcX @cellX
+      @y = @calcY @cellY
       @radius = @size * 0.7 / 2
       @color = @colors[@model.type]
+      @darkenColor = @darkenColors[@model.type]
 
     draw: ->
       return unless @shape
-      @shape.graphics
-        .beginFill(@color)
-        .drawCircle(0, 0, @radius)
+      @shape.graphics.clear()
+      if @model.selected
+        @shape.graphics
+          .beginFill(@darkenColor)
+          .drawCircle(0, 0, @radius)
+          .beginFill(@color)
+          .drawCircle(0, 0, @radius * 0.70)
+      else
+        @shape.graphics
+          .beginFill(@color)
+          .drawCircle(0, 0, @radius)
 
     setShapeX: ->
       @shape?.x = @x
 
     setShapeY: ->
       @shape?.y = @y
+
+    move: (col, row, cb) ->
+      x = @calcX row
+      y = @calcY col
+      createjs.Tween.get @shape
+        .to({ x: x, y: y }, @anim.delay, @anim.type)
+        .call(cb)
 
 namespace ui:
 

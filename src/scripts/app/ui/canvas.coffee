@@ -38,8 +38,8 @@ namespace ui:
       @width  = @$el.width()
       @height = @$el.height()
 
-      cw = @width  / @model.width
-      ch = @height / @model.height
+      cw = @width  / (@model.width + 2)
+      ch = @height / (@model.height + 2)
       cs = if cw < ch then cw else ch
 
       w = cs * @model.width

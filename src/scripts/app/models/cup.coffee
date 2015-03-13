@@ -3,6 +3,13 @@ namespace models:
     @extend PropertyMixin
     @include EventMixin
 
+    @addProperty 'row'
+    @addProperty 'col'
     @addProperty 'type'
+    @addProperty 'selected'
 
-    constructor: (@type) ->
+    constructor: (row, col, type) ->
+      @row = row
+      @col = col
+      @type = type
+      @selected = false
