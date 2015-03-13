@@ -41,7 +41,8 @@ namespace ui:
         x: @x
         y: @y
 
-      @shape.addEventListener 'click', => @model.trigger 'click'
+      @shape.addEventListener 'click',    => @model.trigger 'click'
+      @shape.addEventListener 'dblclick', => @model.trigger 'dblclick'
 
       @model.on 'change:selected', => @draw()
       @model.on 'change:col', => @calc()
@@ -79,9 +80,24 @@ namespace ui:
     setShapeY: ->
       @shape?.y = @y
 
-    move: (col, row, cb) ->
+    move: (col, row, init..., cb) ->
       x = @calcX row
       y = @calcY col
+      if init.length == 2
+        [sx, sy] = [@calcX(init[0]), @calcY(init[1])]
+      else
+        [sx, sy] = [@x, @y]
       createjs.Tween.get @shape
-        .to({ x: x, y: y }, @anim.delay, @anim.type)
-        .call(cb)
+        .set { x: sx, y: sy }
+        .to { x: x, y: y }, @anim.delay, @anim.type
+        .call cb
+
+    hide: (cb) ->
+      createjs.Tween.get @shape
+        .to {scaleX: 0, scaleY: 0}, @anim.delay, @anim.type
+        .call cb
+
+    show: (cb) ->
+      createjs.Tween.get @shape
+        .to {scaleX: 1, scaleY: 1}, @anim.delay, @anim.type
+        .call cb

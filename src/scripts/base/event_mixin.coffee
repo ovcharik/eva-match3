@@ -15,6 +15,9 @@
     @_getHandlers(name).push callback
 
   off: (name, callback) ->
+    unless name
+      delete @__eventHandlers if @__eventHandlers?
+      return
     unless callback
       @_setHandlers(name, [])
     else
