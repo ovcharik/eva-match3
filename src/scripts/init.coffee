@@ -1,5 +1,6 @@
-$ ->
-  config =
+$ =>
+
+  @field = new ui.Field new models.Game
     width:  6
     height: 6
 
@@ -10,5 +11,3 @@ $ ->
       red:   10
       green: 10
       blue:  10
-
-  window.field = new ui.Field new models.Game config

@@ -1,5 +1,5 @@
 (function() {
-  var Counter, CupsCounter, CupsCounters, Field, Game, PropertyMixin, moduleKeywords,
+  var Canvas, Counter, Cup, CupsCounter, CupsCounters, Field, Game, Grid, PropertyMixin, moduleKeywords,
     slice = [].slice,
     indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; },
     extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
@@ -119,22 +119,25 @@
     property: function(prop, options) {
       return Object.defineProperty(this.prototype, prop, options);
     },
-    addProperty: function(name, setCallback) {
+    addProperty: function() {
+      var cbs, name;
+      name = arguments[0], cbs = 2 <= arguments.length ? slice.call(arguments, 1) : [];
       return this.property(name, {
         get: function() {
           return this["_" + name];
         },
         set: function(value) {
-          var n, r;
+          var cb, j, len, n, r;
           n = "set" + (name.capitalize());
           if (this[n] != null) {
             r = this[n](value);
           } else {
             r = this.setProp(name, value);
           }
-          if (setCallback) {
-            if (typeof this[setCallback] === "function") {
-              this[setCallback]();
+          for (j = 0, len = cbs.length; j < len; j++) {
+            cb = cbs[j];
+            if (typeof this[cb] === "function") {
+              this[cb]();
             }
           }
           return r;
@@ -188,6 +191,25 @@
   };
 
   namespace({
+    models: Cup = (function(superClass) {
+      extend(Cup, superClass);
+
+      Cup.extend(PropertyMixin);
+
+      Cup.include(EventMixin);
+
+      Cup.addProperty('type');
+
+      function Cup(type) {
+        this.type = type;
+      }
+
+      return Cup;
+
+    })(Module)
+  });
+
+  namespace({
     models: CupsCounter = (function(superClass) {
       extend(CupsCounter, superClass);
 
@@ -238,16 +260,25 @@
 
       Game.addProperty('fail');
 
+      Game.addProperty('locked');
+
       function Game(options) {
         this.checkWinHandler = _.bind(this.checkWin, this);
         this.setOptions(options);
         this.reset();
+        this.grid = new models.Grid(this);
+        this.grid.on('change', (function(_this) {
+          return function() {
+            return _this.trigger('change:grid');
+          };
+        })(this));
       }
 
       Game.prototype.reset = function() {
         this.score = 0;
         this.win = false;
-        return this.fail = false;
+        this.fail = false;
+        return this.locked = false;
       };
 
       Game.prototype.setOptions = function(options) {
@@ -289,10 +320,173 @@
       };
 
       Game.prototype.checkFail = function() {
-        return this.fail = this.fail || this.score === 0;
+        return this.fail = this.fail || this.moves <= 0;
       };
 
       return Game;
+
+    })(Module)
+  });
+
+  namespace({
+    models: Grid = (function(superClass) {
+      extend(Grid, superClass);
+
+      Grid.extend(PropertyMixin);
+
+      Grid.include(EventMixin);
+
+      function Grid(model) {
+        this.model = model;
+        this.init();
+      }
+
+      Grid.prototype.init = function() {
+        var col, j, k, len, len1, ref, ref1, row, v;
+        this.empty();
+        ref = this.grid;
+        for (row = j = 0, len = ref.length; j < len; row = ++j) {
+          v = ref[row];
+          ref1 = this.grid[row];
+          for (col = k = 0, len1 = ref1.length; k < len1; col = ++k) {
+            v = ref1[col];
+            this.grid[row][col] = this.newCup();
+          }
+        }
+        return this.trigger('change');
+      };
+
+      Grid.prototype.empty = function() {
+        var index, j, len, ref, results, value;
+        this.grid = new Array(this.model.height);
+        ref = this.grid;
+        results = [];
+        for (index = j = 0, len = ref.length; j < len; index = ++j) {
+          value = ref[index];
+          results.push(this.grid[index] = new Array(this.model.width));
+        }
+        return results;
+      };
+
+      Grid.prototype.randomType = function() {
+        return this.model.types[Math.random() * this.model.types.length | 0];
+      };
+
+      Grid.prototype.newCup = function() {
+        return new models.Cup(this.randomType());
+      };
+
+      Grid.prototype.eachCups = function(cb) {
+        var cup, j, len, ref, results, row, x, y;
+        ref = this.grid;
+        results = [];
+        for (y = j = 0, len = ref.length; j < len; y = ++j) {
+          row = ref[y];
+          results.push((function() {
+            var k, len1, results1;
+            results1 = [];
+            for (x = k = 0, len1 = row.length; k < len1; x = ++k) {
+              cup = row[x];
+              results1.push(typeof cb === "function" ? cb(cup, x, y) : void 0);
+            }
+            return results1;
+          })());
+        }
+        return results;
+      };
+
+      return Grid;
+
+    })(Module)
+  });
+
+  namespace({
+    ui: Canvas = (function(superClass) {
+      extend(Canvas, superClass);
+
+      Canvas.extend(PropertyMixin);
+
+      Canvas.include(ViewMixin);
+
+      Canvas.include(EventMixin);
+
+      Canvas.addProperty('model');
+
+      Canvas.addProperty('cellSize');
+
+      Canvas.property('width', {
+        get: function() {
+          return this.el.width;
+        },
+        set: function(val) {
+          return this.el.width = val;
+        }
+      });
+
+      Canvas.property('height', {
+        get: function() {
+          return this.el.height;
+        },
+        set: function(val) {
+          return this.el.height = val;
+        }
+      });
+
+      Canvas.property('handlers', {
+        get: function() {
+          return this._handlers != null ? this._handlers : this._handlers = {
+            onTick: _.bind(this.tick, this),
+            onUpdateGrid: _.bind(this.updateGrid, this)
+          };
+        }
+      });
+
+      function Canvas(el, model) {
+        this.setElement(el);
+        this.model = model;
+        this.stage = new createjs.Stage(this.el);
+        this.resetSize();
+        this.initHandlers();
+        this.updateGrid();
+      }
+
+      Canvas.prototype.initHandlers = function() {
+        createjs.Ticker.addEventListener('tick', this.handlers.onTick);
+        return this.model.on('change:grid', this.handlers.onUpdateGrid);
+      };
+
+      Canvas.prototype.resetSize = function() {
+        var ch, cs, cw, h, w;
+        this.width = this.$el.width();
+        this.height = this.$el.height();
+        cw = this.width / this.model.width;
+        ch = this.height / this.model.height;
+        cs = cw < ch ? cw : ch;
+        w = cs * this.model.width;
+        h = cs * this.model.height;
+        this.stage.set({
+          regX: (w - this.width) / 2,
+          regY: (h - this.height) / 2
+        });
+        return this.cellSize = cs;
+      };
+
+      Canvas.prototype.updateGrid = function() {
+        return this.model.grid.eachCups((function(_this) {
+          return function(cup, x, y) {
+            if (cup.view == null) {
+              cup.view = new ui.Cup(x, y, _this.cellSize, cup);
+            }
+            return _this.stage.addChild(cup.view.shape);
+          };
+        })(this));
+      };
+
+      Canvas.prototype.tick = function(event) {
+        return this.stage.update(event);
+      };
+
+      return Canvas;
 
     })(Module)
   });
@@ -344,6 +538,80 @@
       };
 
       return Counter;
+
+    })(Module)
+  });
+
+  namespace({
+    ui: Cup = (function(superClass) {
+      extend(Cup, superClass);
+
+      Cup.extend(PropertyMixin);
+
+      Cup.include(EventMixin);
+
+      Cup.prototype.colors = {
+        red: "#F15A5A",
+        yellow: "#F0C419",
+        green: "#4EBA6F",
+        blue: "#2D95BF",
+        magenta: "#955BA5"
+      };
+
+      Cup.addProperty('x', 'setShapeX');
+
+      Cup.addProperty('y', 'setShapeY');
+
+      Cup.addProperty('size', 'calc');
+
+      Cup.addProperty('radius', 'draw');
+
+      Cup.addProperty('color', 'draw');
+
+      Cup.addProperty('shape', 'draw');
+
+      Cup.addProperty('cellX');
+
+      Cup.addProperty('cellY');
+
+      function Cup(cx, cy, size, model) {
+        this.cellX = cx;
+        this.cellY = cy;
+        this.model = model;
+        this.size = size;
+        this.shape = new createjs.Shape;
+        this.shape.set({
+          snapToPixel: true,
+          x: this.x,
+          y: this.y
+        });
+      }
+
+      Cup.prototype.calc = function() {
+        this.x = this.cellX * this.size + this.size / 2;
+        this.y = this.cellY * this.size + this.size / 2;
+        this.radius = this.size * 0.7 / 2;
+        return this.color = this.colors[this.model.type];
+      };
+
+      Cup.prototype.draw = function() {
+        if (!this.shape) {
+          return;
+        }
+        return this.shape.graphics.beginFill(this.color).drawCircle(0, 0, this.radius);
+      };
+
+      Cup.prototype.setShapeX = function() {
+        var ref;
+        return (ref = this.shape) != null ? ref.x = this.x : void 0;
+      };
+
+      Cup.prototype.setShapeY = function() {
+        var ref;
+        return (ref = this.shape) != null ? ref.y = this.y : void 0;
+      };
+
+      return Cup;
 
     })(Module)
   });
@@ -522,6 +790,12 @@
         this.cupCounters = new ui.CupsCounters(this.ui.counters, this.game);
         this.moves = new ui.Counter(this.ui.moves, 'moves', this.game);
         this.score = new ui.Counter(this.ui.score, 'score', this.game);
+        this.canvas = new ui.Canvas(this.ui.canvas, this.game);
+        this.game.on('change:moves', (function(_this) {
+          return function(moves) {
+            return _this.ui.$moves.toggleClass('attention', moves <= 5);
+          };
+        })(this));
         this.game.on('change:win', (function(_this) {
           return function(win) {
             if (win) {
@@ -545,21 +819,21 @@
     })(Module)
   });
 
-  $(function() {
-    var config;
-    config = {
-      width: 6,
-      height: 6,
-      moves: 40,
-      types: ['red', 'green', 'blue', 'yellow'],
-      targets: {
-        red: 10,
-        green: 10,
-        blue: 10
-      }
+  $((function(_this) {
+    return function() {
+      return _this.field = new ui.Field(new models.Game({
+        width: 6,
+        height: 6,
+        moves: 40,
+        types: ['red', 'green', 'blue', 'yellow'],
+        targets: {
+          red: 10,
+          green: 10,
+          blue: 10
+        }
+      }));
     };
-    return window.field = new ui.Field(new models.Game(config));
-  });
+  })(this));
 
 }).call(this);
 

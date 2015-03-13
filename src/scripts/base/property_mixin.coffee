@@ -2,7 +2,7 @@ PropertyMixin =
   property: (prop, options) ->
     Object.defineProperty @prototype, prop, options
 
-  addProperty: (name, setCallback) ->
+  addProperty: (name, cbs...) ->
     @property name,
       get: -> @["_#{name}"]
       set: (value) ->
@@ -11,7 +11,8 @@ PropertyMixin =
           r = @[n](value)
         else
           r = @setProp(name, value)
-        @[setCallback]?() if setCallback
+        for cb in cbs
+          @[cb]?()
         r
 
   extended: ->

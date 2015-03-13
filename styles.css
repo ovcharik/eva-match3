@@ -55,6 +55,8 @@ div, canvas {
         background-clip: padding-box; }
       .wrapper .header .counter .value {
         font-size: 32px; }
+        .wrapper .header .counter .value.attention {
+          color: #FF5346; }
     .wrapper .header .cups-counter {
       width: 60%;
       height: 100%;

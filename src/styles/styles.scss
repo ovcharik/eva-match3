@@ -63,6 +63,10 @@ $canvas-size: 80%;
 
       .value {
         font-size: 32px;
+
+        &.attention {
+          color: $color-secondary;
+        }
       }
     }
 

@@ -77,7 +77,7 @@ PropertyMixin =
   property: (prop, options) ->
     Object.defineProperty @prototype, prop, options
 
-  addProperty: (name, setCallback) ->
+  addProperty: (name, cbs...) ->
     @property name,
       get: -> @["_#{name}"]
       set: (value) ->
@@ -86,7 +86,8 @@ PropertyMixin =
           r = @[n](value)
         else
           r = @setProp(name, value)
-        @[setCallback]?() if setCallback
+        for cb in cbs
+          @[cb]?()
         r
 
   extended: ->
@@ -118,6 +119,15 @@ String::capitalize = ->
       @ui[key] = tmp[0]
 
 namespace models:
+  class Cup extends Module
+    @extend PropertyMixin
+    @include EventMixin
+
+    @addProperty 'type'
+
+    constructor: (@type) ->
+
+namespace models:
   class CupsCounter extends Module
     @extend PropertyMixin
     @include EventMixin
@@ -145,6 +155,7 @@ namespace models:
     @addProperty 'types'
     @addProperty 'win'
     @addProperty 'fail'
+    @addProperty 'locked'
 
     constructor: (options) ->
       @checkWinHandler  = _.bind @checkWin, @
@@ -152,10 +163,14 @@ namespace models:
       @setOptions(options)
       @reset()
 
+      @grid = new models.Grid(@)
+      @grid.on 'change', => @trigger 'change:grid'
+
     reset: ->
       @score = 0
       @win = false
       @fail = false
+      @locked = false
 
     setOptions: (options) ->
       @height = options.height
@@ -181,7 +196,102 @@ namespace models:
       @win = w
 
     checkFail: ->
-      @fail = @fail || @score == 0
+      @fail = @fail || @moves <= 0
+
+namespace models:
+  class Grid extends Module
+    @extend PropertyMixin
+    @include EventMixin
+
+    constructor: (model) ->
+      @model = model
+      @init()
+
+    init: ->
+      @empty()
+      for v, row in @grid
+        for v, col in @grid[row]
+          @grid[row][col] = @newCup()
+      @trigger 'change'
+
+    empty: ->
+      @grid = new Array(@model.height)
+      for value, index in @grid
+        @grid[index] = new Array(@model.width)
+
+    randomType: ->
+      @model.types[ Math.random() * @model.types.length | 0 ]
+
+    newCup: ->
+      new models.Cup(@randomType())
+
+    eachCups: (cb) ->
+      for row, y in @grid
+        for cup, x in row
+          cb?(cup, x, y)
+
+namespace ui:
+  class Canvas extends Module
+    @extend PropertyMixin
+    @include ViewMixin
+    @include EventMixin
+
+    @addProperty 'model'
+    @addProperty 'cellSize'
+
+    @property 'width',
+      get: -> @el.width
+      set: (val) -> @el.width = val
+
+    @property 'height',
+      get: -> @el.height
+      set: (val) -> @el.height = val
+
+    @property 'handlers', get: -> @_handlers ?=
+      onTick: _.bind @tick, @
+      onUpdateGrid: _.bind @updateGrid, @
+
+    constructor: (el, model) ->
+      @setElement el
+      @model = model
+
+      @stage = new createjs.Stage(@el)
+      @resetSize()
+      @initHandlers()
+
+      @updateGrid()
+
+    initHandlers: ->
+      createjs.Ticker.addEventListener 'tick', @handlers.onTick
+
+      @model.on 'change:grid', @handlers.onUpdateGrid
+
+    resetSize: ->
+      @width  = @$el.width()
+      @height = @$el.height()
+
+      cw = @width  / @model.width
+      ch = @height / @model.height
+      cs = if cw < ch then cw else ch
+
+      w = cs * @model.width
+      h = cs * @model.height
+
+      @stage.set
+        regX: (w - @width)  / 2
+        regY: (h - @height) / 2
+
+      @cellSize  = cs
+
+    updateGrid: ->
+      @model.grid.eachCups (cup, x, y) =>
+        cup.view ?= new ui.Cup(x, y, @cellSize, cup)
+        @stage.addChild cup.view.shape
+
+    tick: (event) ->
+      @stage.update event
+
+    # setModel: (model) ->
 
 namespace ui:
 
@@ -213,6 +323,57 @@ namespace ui:
       @_model.on? "change:#{@prop}", @_handler
       @_model
 
+
+namespace ui:
+  class Cup extends Module
+    @extend PropertyMixin
+    @include EventMixin
+
+    colors:
+      red     : "#F15A5A"
+      yellow  : "#F0C419"
+      green   : "#4EBA6F"
+      blue    : "#2D95BF"
+      magenta : "#955BA5"
+
+    @addProperty 'x', 'setShapeX'
+    @addProperty 'y', 'setShapeY'
+    @addProperty 'size', 'calc'
+    @addProperty 'radius', 'draw'
+    @addProperty 'color', 'draw'
+    @addProperty 'shape', 'draw'
+    @addProperty 'cellX'
+    @addProperty 'cellY'
+
+    constructor: (cx, cy, size, model) ->
+      @cellX = cx
+      @cellY = cy
+      @model = model
+      @size = size
+
+      @shape = new createjs.Shape
+      @shape.set
+        snapToPixel: true
+        x: @x
+        y: @y
+
+    calc: ->
+      @x = @cellX * @size + @size / 2
+      @y = @cellY * @size + @size / 2
+      @radius = @size * 0.7 / 2
+      @color = @colors[@model.type]
+
+    draw: ->
+      return unless @shape
+      @shape.graphics
+        .beginFill(@color)
+        .drawCircle(0, 0, @radius)
+
+    setShapeX: ->
+      @shape?.x = @x
+
+    setShapeY: ->
+      @shape?.y = @y
 
 namespace ui:
 
@@ -332,6 +493,10 @@ namespace ui:
       @cupCounters = new ui.CupsCounters(@ui.counters, @game)
       @moves = new ui.Counter(@ui.moves, 'moves', @game)
       @score = new ui.Counter(@ui.score, 'score', @game)
+      @canvas = new ui.Canvas(@ui.canvas, @game)
+
+      @game.on 'change:moves', (moves) =>
+        @ui.$moves.toggleClass('attention', moves <= 5)
 
       @game.on 'change:win', (win) =>
         if win
@@ -343,8 +508,9 @@ namespace ui:
           alert('Fail!')
           window.location = window.location
 
-$ ->
-  config =
+$ =>
+
+  @field = new ui.Field new models.Game
     width:  6
     height: 6
 
@@ -355,5 +521,3 @@ $ ->
       red:   10
       green: 10
       blue:  10
-
-  window.field = new ui.Field new models.Game config

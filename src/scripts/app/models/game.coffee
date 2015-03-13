@@ -10,6 +10,7 @@ namespace models:
     @addProperty 'types'
     @addProperty 'win'
     @addProperty 'fail'
+    @addProperty 'locked'
 
     constructor: (options) ->
       @checkWinHandler  = _.bind @checkWin, @
@@ -17,10 +18,14 @@ namespace models:
       @setOptions(options)
       @reset()
 
+      @grid = new models.Grid(@)
+      @grid.on 'change', => @trigger 'change:grid'
+
     reset: ->
       @score = 0
       @win = false
       @fail = false
+      @locked = false
 
     setOptions: (options) ->
       @height = options.height
@@ -46,4 +51,4 @@ namespace models:
       @win = w
 
     checkFail: ->
-      @fail = @fail || @score == 0
+      @fail = @fail || @moves <= 0
