@@ -22,9 +22,12 @@ namespace models:
 
     init: ->
       @empty()
-      for v, row in @grid
-        for v, col in @grid[row]
-          @grid[row][col] = @newCup(row, col)
+      while true
+        for v, row in @grid
+          for v, col in @grid[row]
+            @grid[row][col] = @newCup(row, col)
+        continue if @findMatches().length
+        break
       @trigger 'change'
 
     empty: ->
@@ -55,8 +58,6 @@ namespace models:
         if row[col].row >= @height
           offset += 1
           row[col].row += offset - 1
-          console.log row[col].row, offset
-
 
     getCup: (x, y) ->
       if y < 0 || y >= @height || x < 0 || x >= @width
@@ -66,8 +67,53 @@ namespace models:
         @grid[y][x] = null
         c
 
-    hasMatches: ->
-      Boolean(Math.random() * 2 | 0)
+    findVMatch: (row, col) ->
+      matches = [@grid[row][col]]
+      for c in [col .. @width - 2]
+        if @grid[row][c].type == @grid[row][c + 1].type
+          matches.push @grid[row][c + 1]
+        else
+          return matches
+      matches
+
+    findHMatch: (row, col) ->
+      matches = [@grid[row][col]]
+      for r in [row .. @height - 2]
+        if @grid[r][col].type == @grid[r + 1][col].type
+          matches.push @grid[r + 1][col]
+        else
+          return matches
+      matches
+
+    findMatches: ->
+      matches = []
+      row = 0; while row < @height
+        col = 0; while col < @width - 2
+          m = @findVMatch(row, col)
+          if m.length > 2
+            matches.push m
+          col += m.length
+        row += 1
+      col = 0; while col < @width
+        row = 0; while row < @height - 2
+          m = @findHMatch(row, col)
+          if m.length > 2
+            matches.push m
+          row += m.length
+        col += 1
+      matches
+
+    findAndRemoveMatches: ->
+      matches = @findMatches()
+      cups = _.chain(matches).flatten().uniq().value()
+
+      types = _.countBy cups, (c) -> c.type
+      score = _.map matches, (m) -> m.length
+
+      @trigger 'matches', score, types
+
+      @removeCups cups if cups.length
+      return Boolean cups.length
 
     eachCups: (cb) ->
       for row, y in @grid
@@ -158,13 +204,13 @@ namespace models:
       startSwap()
       @lockAndExec animHandlers(), =>
         doSwap()
-        unless @hasMatches()
+        unless @findAndRemoveMatches()
           @lockAndExec animHandlers(), =>
             doSwap()
             endSwap()
         else
+          @trigger 'swap'
           endSwap()
-          @trigger 'change'
 
     fillEmpty: ->
       for col in [0..@width - 1]
@@ -180,6 +226,7 @@ namespace models:
       @lockAndExec anims, =>
         @normalizeGrid()
         @trigger 'change'
+        @findAndRemoveMatches()
 
     removeCups: (cups) ->
       anims = []

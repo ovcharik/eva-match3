@@ -21,6 +21,10 @@ namespace models:
       @grid = new models.Grid(@)
       @grid.on 'change', => @trigger 'change:grid'
       @grid.on 'change:lock', (value) => @lock = value
+      @grid.on 'swap', => @moves -= 1
+      @grid.on 'matches', (score, types) =>
+        @updateTarget(types)
+        @updateScore(score)
 
     reset: ->
       @score = 0
@@ -44,6 +48,13 @@ namespace models:
       for key, value of targets
         @targets[key] = new models.CupsCounter key, value
         @targets[key].on? 'change:done', @checkWinHandler
+
+    updateTarget: (types) ->
+      for key, value of types
+        @targets[key]?.score += value
+
+    updateScore: (score) ->
+      @score += _.chain(score).map((s) -> (s - 1) * 5).reduce(((memo, v) -> memo + v), 0).value()
 
     checkWin: ->
       w = true

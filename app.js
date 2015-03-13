@@ -292,6 +292,17 @@
             return _this.lock = value;
           };
         })(this));
+        this.grid.on('swap', (function(_this) {
+          return function() {
+            return _this.moves -= 1;
+          };
+        })(this));
+        this.grid.on('matches', (function(_this) {
+          return function(score, types) {
+            _this.updateTarget(types);
+            return _this.updateScore(score);
+          };
+        })(this));
       }
 
       Game.prototype.reset = function() {
@@ -326,6 +337,24 @@
           results.push(typeof (base = this.targets[key]).on === "function" ? base.on('change:done', this.checkWinHandler) : void 0);
         }
         return results;
+      };
+
+      Game.prototype.updateTarget = function(types) {
+        var key, ref, results, value;
+        results = [];
+        for (key in types) {
+          value = types[key];
+          results.push((ref = this.targets[key]) != null ? ref.score += value : void 0);
+        }
+        return results;
+      };
+
+      Game.prototype.updateScore = function(score) {
+        return this.score += _.chain(score).map(function(s) {
+          return (s - 1) * 5;
+        }).reduce((function(memo, v) {
+          return memo + v;
+        }), 0).value();
       };
 
       Game.prototype.checkWin = function() {
@@ -376,14 +405,20 @@
       Grid.prototype.init = function() {
         var col, j, k, len, len1, ref, ref1, row, v;
         this.empty();
-        ref = this.grid;
-        for (row = j = 0, len = ref.length; j < len; row = ++j) {
-          v = ref[row];
-          ref1 = this.grid[row];
-          for (col = k = 0, len1 = ref1.length; k < len1; col = ++k) {
-            v = ref1[col];
-            this.grid[row][col] = this.newCup(row, col);
+        while (true) {
+          ref = this.grid;
+          for (row = j = 0, len = ref.length; j < len; row = ++j) {
+            v = ref[row];
+            ref1 = this.grid[row];
+            for (col = k = 0, len1 = ref1.length; k < len1; col = ++k) {
+              v = ref1[col];
+              this.grid[row][col] = this.newCup(row, col);
+            }
           }
+          if (this.findMatches().length) {
+            continue;
+          }
+          break;
         }
         return this.trigger('change');
       };
@@ -441,8 +476,7 @@
           }
           if (row[col].row >= this.height) {
             offset += 1;
-            row[col].row += offset - 1;
-            results.push(console.log(row[col].row, offset));
+            results.push(row[col].row += offset - 1);
           } else {
             results.push(void 0);
           }
@@ -461,8 +495,77 @@
         }
       };
 
-      Grid.prototype.hasMatches = function() {
-        return Boolean(Math.random() * 2 | 0);
+      Grid.prototype.findVMatch = function(row, col) {
+        var c, j, matches, ref, ref1;
+        matches = [this.grid[row][col]];
+        for (c = j = ref = col, ref1 = this.width - 2; ref <= ref1 ? j <= ref1 : j >= ref1; c = ref <= ref1 ? ++j : --j) {
+          if (this.grid[row][c].type === this.grid[row][c + 1].type) {
+            matches.push(this.grid[row][c + 1]);
+          } else {
+            return matches;
+          }
+        }
+        return matches;
+      };
+
+      Grid.prototype.findHMatch = function(row, col) {
+        var j, matches, r, ref, ref1;
+        matches = [this.grid[row][col]];
+        for (r = j = ref = row, ref1 = this.height - 2; ref <= ref1 ? j <= ref1 : j >= ref1; r = ref <= ref1 ? ++j : --j) {
+          if (this.grid[r][col].type === this.grid[r + 1][col].type) {
+            matches.push(this.grid[r + 1][col]);
+          } else {
+            return matches;
+          }
+        }
+        return matches;
+      };
+
+      Grid.prototype.findMatches = function() {
+        var col, m, matches, row;
+        matches = [];
+        row = 0;
+        while (row < this.height) {
+          col = 0;
+          while (col < this.width - 2) {
+            m = this.findVMatch(row, col);
+            if (m.length > 2) {
+              matches.push(m);
+            }
+            col += m.length;
+          }
+          row += 1;
+        }
+        col = 0;
+        while (col < this.width) {
+          row = 0;
+          while (row < this.height - 2) {
+            m = this.findHMatch(row, col);
+            if (m.length > 2) {
+              matches.push(m);
+            }
+            row += m.length;
+          }
+          col += 1;
+        }
+        return matches;
+      };
+
+      Grid.prototype.findAndRemoveMatches = function() {
+        var cups, matches, score, types;
+        matches = this.findMatches();
+        cups = _.chain(matches).flatten().uniq().value();
+        types = _.countBy(cups, function(c) {
+          return c.type;
+        });
+        score = _.map(matches, function(m) {
+          return m.length;
+        });
+        this.trigger('matches', score, types);
+        if (cups.length) {
+          this.removeCups(cups);
+        }
+        return Boolean(cups.length);
       };
 
       Grid.prototype.eachCups = function(cb) {
@@ -592,14 +695,14 @@
         return this.lockAndExec(animHandlers(), (function(_this) {
           return function() {
             doSwap();
-            if (!_this.hasMatches()) {
+            if (!_this.findAndRemoveMatches()) {
               return _this.lockAndExec(animHandlers(), function() {
                 doSwap();
                 return endSwap();
               });
             } else {
-              endSwap();
-              return _this.trigger('change');
+              _this.trigger('swap');
+              return endSwap();
             }
           };
         })(this));
@@ -622,7 +725,8 @@
         return this.lockAndExec(anims, (function(_this) {
           return function() {
             _this.normalizeGrid();
-            return _this.trigger('change');
+            _this.trigger('change');
+            return _this.findAndRemoveMatches();
           };
         })(this));
       };
@@ -1185,9 +1289,9 @@
         moves: 40,
         types: ['red', 'green', 'blue', 'yellow'],
         targets: {
-          red: 10,
-          green: 10,
-          blue: 10
+          red: 50,
+          green: 50,
+          blue: 50
         }
       }));
     };

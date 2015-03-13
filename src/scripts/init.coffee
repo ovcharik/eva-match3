@@ -8,6 +8,6 @@ $ =>
     types: ['red', 'green', 'blue', 'yellow']
 
     targets:
-      red:   10
-      green: 10
-      blue:  10
+      red:   50
+      green: 50
+      blue:  50
