@@ -400,24 +400,69 @@
         return results;
       };
 
-      Grid.prototype.randomType = function() {
-        return this.types[Math.random() * this.types.length | 0];
+      Grid.prototype.normalizeGrid = function() {
+        return this.eachCups((function(_this) {
+          return function(cup, x, y) {
+            cup.col = x;
+            return cup.row = y;
+          };
+        })(this));
       };
 
-      Grid.prototype.newCup = function(row, col) {
-        var cup;
-        cup = new models.Cup(row, col, this.randomType());
-        cup.on('click', (function(_this) {
-          return function() {
-            return _this.onCupClick(cup);
-          };
-        })(this));
-        cup.on('dblclick', (function(_this) {
-          return function() {
-            return _this.onCupDblClick(cup);
-          };
-        })(this));
-        return cup;
+      Grid.prototype.hasEmpty = function() {
+        var cup, j, k, len, len1, r, ref, row;
+        r = false;
+        ref = this.grid;
+        for (j = 0, len = ref.length; j < len; j++) {
+          row = ref[j];
+          if (!r) {
+            for (k = 0, len1 = row.length; k < len1; k++) {
+              cup = row[k];
+              if (!r) {
+                r || (r = cup == null);
+              }
+            }
+          }
+        }
+        return r;
+      };
+
+      Grid.prototype.fillCol = function(col) {
+        var j, len, offset, ref, results, row, tmp, y;
+        offset = 0;
+        ref = this.grid;
+        results = [];
+        for (y = j = 0, len = ref.length; j < len; y = ++j) {
+          row = ref[y];
+          tmp = y;
+          while (!row[col]) {
+            tmp += 1;
+            row[col] = this.getCup(col, tmp);
+          }
+          if (row[col].row >= this.height) {
+            offset += 1;
+            row[col].row += offset - 1;
+            results.push(console.log(row[col].row, offset));
+          } else {
+            results.push(void 0);
+          }
+        }
+        return results;
+      };
+
+      Grid.prototype.getCup = function(x, y) {
+        var c;
+        if (y < 0 || y >= this.height || x < 0 || x >= this.width) {
+          return this.newCup(y, x);
+        } else {
+          c = this.grid[y][x];
+          this.grid[y][x] = null;
+          return c;
+        }
+      };
+
+      Grid.prototype.hasMatches = function() {
+        return Boolean(Math.random() * 2 | 0);
       };
 
       Grid.prototype.eachCups = function(cb) {
@@ -443,21 +488,57 @@
         return results;
       };
 
+      Grid.prototype.onChange = function() {
+        if (this.hasEmpty()) {
+          this.fillEmpty();
+        }
+      };
+
+      Grid.prototype.newCup = function(row, col) {
+        var cup;
+        cup = new models.Cup(row, col, this.randomType());
+        cup.on('click', (function(_this) {
+          return function() {
+            if (_this.lock) {
+              return;
+            }
+            return _this.onCupClick(cup);
+          };
+        })(this));
+        cup.on('dblclick', (function(_this) {
+          return function() {
+            if (_this.lock) {
+              return;
+            }
+            return _this.onCupDblClick(cup);
+          };
+        })(this));
+        return cup;
+      };
+
       Grid.prototype.removeCup = function(cup) {
         var col, row;
+        if (this.selected === cup) {
+          this.selected = null;
+        }
         row = cup.row;
         col = cup.col;
         cup.off();
         return this.grid[row][col] = null;
       };
 
+      Grid.prototype.randomType = function() {
+        return this.types[Math.random() * this.types.length | 0];
+      };
+
+      Grid.prototype.isNear = function(c1, c2) {
+        return (c1.row === c2.row && Math.abs(c1.col - c2.col) === 1) || (c1.col === c2.col && Math.abs(c1.row - c2.row) === 1);
+      };
+
       Grid.prototype.onCupClick = function(cup) {
-        if (this.lock) {
-          return;
-        }
         if (this.selected) {
           if (this.isNear(this.selected, cup)) {
-            this.swap(this.selected, cup);
+            this.trySwap(this.selected, cup);
             return this.selected = null;
           } else {
             cup.selected = !cup.selected;
@@ -475,147 +556,57 @@
       };
 
       Grid.prototype.onCupDblClick = function(cup) {
-        if (this.lock) {
-          return;
-        }
-        this.lock = true;
-        return cup.view.hide((function(_this) {
+        return this.removeCups([cup]);
+      };
+
+      Grid.prototype.trySwap = function(c1, c2) {
+        var animHandlers, doSwap, endSwap, startSwap;
+        startSwap = (function(_this) {
           return function() {
-            _this.removeCup(cup);
-            _this.lock = false;
-            return _this.trigger('change');
+            c1.selected = true;
+            return c2.selected = true;
           };
-        })(this));
-      };
-
-      Grid.prototype.isNear = function(c1, c2) {
-        return (c1.row === c2.row && Math.abs(c1.col - c2.col) === 1) || (c1.col === c2.col && Math.abs(c1.row - c2.row) === 1);
-      };
-
-      Grid.prototype.isRight = function(c1, c2) {
-        return c1 > c2;
-      };
-
-      Grid.prototype.isLeft = function(c1, c2) {
-        return c1 < c2;
-      };
-
-      Grid.prototype.isTop = function(r1, r2) {
-        return r1 < r2;
-      };
-
-      Grid.prototype.isBottom = function(r1, r2) {
-        return r1 > r2;
-      };
-
-      Grid.prototype.hasMatches = function() {
-        return Boolean(Math.random() * 2 | 0);
-      };
-
-      Grid.prototype.swap = function(c1, c2) {
-        var animHandlers;
-        animHandlers = function() {
-          return [_.bind(c1.view.move, c1.view, c2.row, c2.col), _.bind(c2.view.move, c2.view, c1.row, c1.col)];
-        };
-        this.startSwap(c1, c2);
-        return async.parallel(animHandlers(), (function(_this) {
+        })(this);
+        endSwap = (function(_this) {
           return function() {
-            _this.doSwap(c1, c2);
+            c1.selected = false;
+            return c2.selected = false;
+          };
+        })(this);
+        doSwap = (function(_this) {
+          return function() {
+            var c, r, ref, ref1, ref2;
+            _this.grid[c1.row][c1.col] = c2;
+            _this.grid[c2.row][c2.col] = c1;
+            ref = [c2.row, c2.col], r = ref[0], c = ref[1];
+            ref1 = [c1.row, c1.col], c2.row = ref1[0], c2.col = ref1[1];
+            return ref2 = [r, c], c1.row = ref2[0], c1.col = ref2[1], ref2;
+          };
+        })(this);
+        animHandlers = (function(_this) {
+          return function() {
+            return [_.bind(c1.view.move, c1.view, c2.row, c2.col), _.bind(c2.view.move, c2.view, c1.row, c1.col)];
+          };
+        })(this);
+        startSwap();
+        return this.lockAndExec(animHandlers(), (function(_this) {
+          return function() {
+            doSwap();
             if (!_this.hasMatches()) {
-              return async.parallel(animHandlers(), function() {
-                _this.doSwap(c1, c2);
-                return _this.endSwap(c1, c2);
+              return _this.lockAndExec(animHandlers(), function() {
+                doSwap();
+                return endSwap();
               });
             } else {
-              _this.endSwap(c1, c2);
+              endSwap();
               return _this.trigger('change');
             }
           };
         })(this));
       };
 
-      Grid.prototype.startSwap = function(c1, c2) {
-        this.lock = true;
-        c1.selected = true;
-        return c2.selected = true;
-      };
-
-      Grid.prototype.endSwap = function(c1, c2) {
-        c1.selected = false;
-        c2.selected = false;
-        return this.lock = false;
-      };
-
-      Grid.prototype.doSwap = function(c1, c2) {
-        var c, r, ref, ref1, ref2;
-        this.grid[c1.row][c1.col] = c2;
-        this.grid[c2.row][c2.col] = c1;
-        ref = [c2.row, c2.col], r = ref[0], c = ref[1];
-        ref1 = [c1.row, c1.col], c2.row = ref1[0], c2.col = ref1[1];
-        return ref2 = [r, c], c1.row = ref2[0], c1.col = ref2[1], ref2;
-      };
-
-      Grid.prototype.hasEmpty = function() {
-        var cup, j, k, len, len1, r, ref, row;
-        r = false;
-        ref = this.grid;
-        for (j = 0, len = ref.length; j < len; j++) {
-          row = ref[j];
-          if (!r) {
-            for (k = 0, len1 = row.length; k < len1; k++) {
-              cup = row[k];
-              if (!r) {
-                r || (r = cup == null);
-              }
-            }
-          }
-        }
-        return r;
-      };
-
-      Grid.prototype.getCup = function(x, y) {
-        var c;
-        if (y < 0 || y >= this.height || x < 0 || x >= this.width) {
-          return this.newCup(y, x);
-        } else {
-          c = this.grid[y][x];
-          this.grid[y][x] = null;
-          return c;
-        }
-      };
-
-      Grid.prototype.normalizeGrid = function() {
-        return this.eachCups((function(_this) {
-          return function(cup, x, y) {
-            cup.col = x;
-            return cup.row = y;
-          };
-        })(this));
-      };
-
-      Grid.prototype.fillCol = function(col) {
-        var j, len, ref, results, row, tmp, y;
-        ref = this.grid;
-        results = [];
-        for (y = j = 0, len = ref.length; j < len; y = ++j) {
-          row = ref[y];
-          tmp = y;
-          results.push((function() {
-            var results1;
-            results1 = [];
-            while (!row[col]) {
-              tmp += 1;
-              results1.push(row[col] = this.getCup(col, tmp));
-            }
-            return results1;
-          }).call(this));
-        }
-        return results;
-      };
-
       Grid.prototype.fillEmpty = function() {
         var anims, col, j, ref;
-        this.lock = true;
         for (col = j = 0, ref = this.width - 1; 0 <= ref ? j <= ref : j >= ref; col = 0 <= ref ? ++j : --j) {
           this.fillCol(col);
         }
@@ -628,18 +619,52 @@
             }
           };
         })(this));
-        return async.parallel(anims, (function(_this) {
+        return this.lockAndExec(anims, (function(_this) {
           return function() {
             _this.normalizeGrid();
-            _this.lock = false;
             return _this.trigger('change');
           };
         })(this));
       };
 
-      Grid.prototype.onChange = function() {
-        if (this.hasEmpty()) {
-          this.fillEmpty();
+      Grid.prototype.removeCups = function(cups) {
+        var anims, cup, j, len;
+        anims = [];
+        for (j = 0, len = cups.length; j < len; j++) {
+          cup = cups[j];
+          anims.push(_.bind(cup.view.hide, cup.view));
+        }
+        return this.lockAndExec(anims, (function(_this) {
+          return function() {
+            var k, len1;
+            for (k = 0, len1 = cups.length; k < len1; k++) {
+              cup = cups[k];
+              _this.removeCup(cup);
+            }
+            return _this.trigger('change');
+          };
+        })(this));
+      };
+
+      Grid.prototype.lockAndExec = function(h, c) {
+        if (h == null) {
+          h = [];
+        }
+        this.lock = true;
+        if (h.length > 0) {
+          return async.parallel(h, (function(_this) {
+            return function() {
+              if (typeof c === "function") {
+                c();
+              }
+              return _this.lock = false;
+            };
+          })(this));
+        } else {
+          if (typeof c === "function") {
+            c();
+          }
+          return this.lock = false;
         }
       };
 
