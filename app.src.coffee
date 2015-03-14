@@ -165,29 +165,20 @@ namespace models:
     @addProperty 'types'
     @addProperty 'win'
     @addProperty 'fail'
-    @addProperty 'lock'
 
     constructor: (options) ->
       @checkWinHandler  = _.bind @checkWin, @
 
       @setOptions(options)
-      @reset()
-
-      @grid = new models.Grid(@)
-      @grid.on 'change', => @trigger 'change:grid'
-      @grid.on 'change:lock', (value) => @lock = value
-      @grid.on 'swap', => @moves -= 1
-      @grid.on 'matches', (score, types) =>
-        @updateTarget(types)
-        @updateScore(score)
 
     reset: ->
       @score = 0
       @win = false
       @fail = false
-      @lock = false
 
     setOptions: (options) ->
+      @reset()
+
       @height = options.height
       @width  = options.width
 
@@ -195,6 +186,7 @@ namespace models:
       @types = options.types
 
       @setTargets options.targets
+      @setGrid()
 
     setTargets: (targets) ->
       if @targets
@@ -203,6 +195,17 @@ namespace models:
       for key, value of targets
         @targets[key] = new models.CupsCounter key, value
         @targets[key].on? 'change:done', @checkWinHandler
+
+    setGrid: ->
+      if @grid
+        @grid.off()
+
+      @grid = new models.Grid(@)
+      @grid.on 'change', => @trigger 'change:grid'
+      @grid.on 'swap', => @moves -= 1
+      @grid.on 'matches', (score, types) =>
+        @updateTarget(types)
+        @updateScore(score)
 
     updateTarget: (types) ->
       for key, value of types
@@ -254,6 +257,7 @@ namespace models:
           for v, col in @grid[row]
             @grid[row][col] = @newCup(row, col)
         continue if @findMatches().length
+        continue unless @hasPossible()
         break
       @trigger 'change'
 
@@ -341,6 +345,33 @@ namespace models:
 
       @removeCups cups if cups.length
       return Boolean cups.length
+
+    matchType: (col, row, type) ->
+      if col < 0 || col >= @width || row < 0 || row >= @height
+        return false
+      @grid[row][col].type == type
+
+    matchPattern: (col, row, mustHave, needOne) ->
+      type = @grid[row][col].type
+      for m in mustHave
+        unless @matchType col + m[0], row + m[1], type
+          return false
+      for n in needOne
+        if @matchType col + n[0], row + n[1], type
+          return true
+      return false
+
+    hasPossible: ->
+      patterns =
+        hNear: [[[1,0]], [[-2,0],[-1,-1],[-1,1],[2,-1],[2,1],[3,0]]]
+        vNear: [[[0,1]], [[0,-2],[-1,-1],[1,-1],[-1,2],[1,2],[0,3]]]
+        h:     [[[2,0]], [[1,-1],[1,1]]]
+        v:     [[[0,2]], [[-1,1],[1,1]]]
+      for row, y in @grid
+        for cup, x in row
+          for name, pattern of patterns
+            return true if @matchPattern x, y, pattern[0], pattern[1]
+      return false
 
     eachCups: (cb) ->
       for row, y in @grid
@@ -454,7 +485,37 @@ namespace models:
       @lockAndExec anims, =>
         @normalizeGrid()
         @trigger 'change'
-        @findAndRemoveMatches()
+        unless @findAndRemoveMatches()
+          unless @hasPossible()
+            @shuffle()
+
+    canShuffle: ->
+      _.chain(@grid)
+        .flatten()
+        .countBy (c) => c.type
+        .values()
+        .any (c) => c > 2
+        .value()
+
+    shuffle: ->
+      unless @canShuffle()
+        throw new Error "Can't shuffle"
+
+      cups = _.chain(@grid).flatten()
+      while not @hasPossible() or @findMatches().length
+        @grid = cups
+          .shuffle()
+          .groupBy (v, i) => Math.floor(i / @width)
+          .toArray()
+          .value()
+
+      anims = []
+      @eachCups (cup, x, y) =>
+        anims.push _.bind cup.view.move, cup.view, y, x
+
+      @lockAndExec anims, =>
+        @normalizeGrid()
+        @trigger 'change'
 
     removeCups: (cups) ->
       anims = []
@@ -811,11 +872,11 @@ namespace ui:
 $ =>
 
   @field = new ui.Field new models.Game
-    width:  6
-    height: 6
+    width:  7
+    height: 7
 
     moves: 40
-    types: ['red', 'green', 'blue', 'yellow']
+    types: ['red', 'green', 'blue', 'yellow', 'magenta']
 
     targets:
       red:   50

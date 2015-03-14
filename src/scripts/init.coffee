@@ -1,11 +1,11 @@
 $ =>
 
   @field = new ui.Field new models.Game
-    width:  6
-    height: 6
+    width:  7
+    height: 7
 
     moves: 40
-    types: ['red', 'green', 'blue', 'yellow']
+    types: ['red', 'green', 'blue', 'yellow', 'magenta']
 
     targets:
       red:   50

@@ -275,49 +275,25 @@
 
       Game.addProperty('fail');
 
-      Game.addProperty('lock');
-
       function Game(options) {
         this.checkWinHandler = _.bind(this.checkWin, this);
         this.setOptions(options);
-        this.reset();
-        this.grid = new models.Grid(this);
-        this.grid.on('change', (function(_this) {
-          return function() {
-            return _this.trigger('change:grid');
-          };
-        })(this));
-        this.grid.on('change:lock', (function(_this) {
-          return function(value) {
-            return _this.lock = value;
-          };
-        })(this));
-        this.grid.on('swap', (function(_this) {
-          return function() {
-            return _this.moves -= 1;
-          };
-        })(this));
-        this.grid.on('matches', (function(_this) {
-          return function(score, types) {
-            _this.updateTarget(types);
-            return _this.updateScore(score);
-          };
-        })(this));
       }
 
       Game.prototype.reset = function() {
         this.score = 0;
         this.win = false;
-        this.fail = false;
-        return this.lock = false;
+        return this.fail = false;
       };
 
       Game.prototype.setOptions = function(options) {
+        this.reset();
         this.height = options.height;
         this.width = options.width;
         this.moves = options.moves;
         this.types = options.types;
-        return this.setTargets(options.targets);
+        this.setTargets(options.targets);
+        return this.setGrid();
       };
 
       Game.prototype.setTargets = function(targets) {
@@ -337,6 +313,29 @@
           results.push(typeof (base = this.targets[key]).on === "function" ? base.on('change:done', this.checkWinHandler) : void 0);
         }
         return results;
+      };
+
+      Game.prototype.setGrid = function() {
+        if (this.grid) {
+          this.grid.off();
+        }
+        this.grid = new models.Grid(this);
+        this.grid.on('change', (function(_this) {
+          return function() {
+            return _this.trigger('change:grid');
+          };
+        })(this));
+        this.grid.on('swap', (function(_this) {
+          return function() {
+            return _this.moves -= 1;
+          };
+        })(this));
+        return this.grid.on('matches', (function(_this) {
+          return function(score, types) {
+            _this.updateTarget(types);
+            return _this.updateScore(score);
+          };
+        })(this));
       };
 
       Game.prototype.updateTarget = function(types) {
@@ -419,6 +418,9 @@
             }
           }
           if (this.findMatches().length) {
+            continue;
+          }
+          if (!this.hasPossible()) {
             continue;
           }
           break;
@@ -569,6 +571,55 @@
           this.removeCups(cups);
         }
         return Boolean(cups.length);
+      };
+
+      Grid.prototype.matchType = function(col, row, type) {
+        if (col < 0 || col >= this.width || row < 0 || row >= this.height) {
+          return false;
+        }
+        return this.grid[row][col].type === type;
+      };
+
+      Grid.prototype.matchPattern = function(col, row, mustHave, needOne) {
+        var j, k, len, len1, m, n, type;
+        type = this.grid[row][col].type;
+        for (j = 0, len = mustHave.length; j < len; j++) {
+          m = mustHave[j];
+          if (!this.matchType(col + m[0], row + m[1], type)) {
+            return false;
+          }
+        }
+        for (k = 0, len1 = needOne.length; k < len1; k++) {
+          n = needOne[k];
+          if (this.matchType(col + n[0], row + n[1], type)) {
+            return true;
+          }
+        }
+        return false;
+      };
+
+      Grid.prototype.hasPossible = function() {
+        var cup, j, k, len, len1, name, pattern, patterns, ref, row, x, y;
+        patterns = {
+          hNear: [[[1, 0]], [[-2, 0], [-1, -1], [-1, 1], [2, -1], [2, 1], [3, 0]]],
+          vNear: [[[0, 1]], [[0, -2], [-1, -1], [1, -1], [-1, 2], [1, 2], [0, 3]]],
+          h: [[[2, 0]], [[1, -1], [1, 1]]],
+          v: [[[0, 2]], [[-1, 1], [1, 1]]]
+        };
+        ref = this.grid;
+        for (y = j = 0, len = ref.length; j < len; y = ++j) {
+          row = ref[y];
+          for (x = k = 0, len1 = row.length; k < len1; x = ++k) {
+            cup = row[x];
+            for (name in patterns) {
+              pattern = patterns[name];
+              if (this.matchPattern(x, y, pattern[0], pattern[1])) {
+                return true;
+              }
+            }
+          }
+        }
+        return false;
       };
 
       Grid.prototype.eachCups = function(cb) {
@@ -724,7 +775,50 @@
           return function() {
             _this.normalizeGrid();
             _this.trigger('change');
-            return _this.findAndRemoveMatches();
+            if (!_this.findAndRemoveMatches()) {
+              if (!_this.hasPossible()) {
+                return _this.shuffle();
+              }
+            }
+          };
+        })(this));
+      };
+
+      Grid.prototype.canShuffle = function() {
+        return _.chain(this.grid).flatten().countBy((function(_this) {
+          return function(c) {
+            return c.type;
+          };
+        })(this)).values().any((function(_this) {
+          return function(c) {
+            return c > 2;
+          };
+        })(this)).value();
+      };
+
+      Grid.prototype.shuffle = function() {
+        var anims, cups;
+        if (!this.canShuffle()) {
+          throw new Error("Can't shuffle");
+        }
+        cups = _.chain(this.grid).flatten();
+        while (!this.hasPossible() || this.findMatches().length) {
+          this.grid = cups.shuffle().groupBy((function(_this) {
+            return function(v, i) {
+              return Math.floor(i / _this.width);
+            };
+          })(this)).toArray().value();
+        }
+        anims = [];
+        this.eachCups((function(_this) {
+          return function(cup, x, y) {
+            return anims.push(_.bind(cup.view.move, cup.view, y, x));
+          };
+        })(this));
+        return this.lockAndExec(anims, (function(_this) {
+          return function() {
+            _this.normalizeGrid();
+            return _this.trigger('change');
           };
         })(this));
       };
@@ -1282,10 +1376,10 @@
   $((function(_this) {
     return function() {
       return _this.field = new ui.Field(new models.Game({
-        width: 6,
-        height: 6,
+        width: 7,
+        height: 7,
         moves: 40,
-        types: ['red', 'green', 'blue', 'yellow'],
+        types: ['red', 'green', 'blue', 'yellow', 'magenta'],
         targets: {
           red: 50,
           green: 50,

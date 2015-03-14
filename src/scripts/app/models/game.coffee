@@ -10,29 +10,20 @@ namespace models:
     @addProperty 'types'
     @addProperty 'win'
     @addProperty 'fail'
-    @addProperty 'lock'
 
     constructor: (options) ->
       @checkWinHandler  = _.bind @checkWin, @
 
       @setOptions(options)
-      @reset()
-
-      @grid = new models.Grid(@)
-      @grid.on 'change', => @trigger 'change:grid'
-      @grid.on 'change:lock', (value) => @lock = value
-      @grid.on 'swap', => @moves -= 1
-      @grid.on 'matches', (score, types) =>
-        @updateTarget(types)
-        @updateScore(score)
 
     reset: ->
       @score = 0
       @win = false
       @fail = false
-      @lock = false
 
     setOptions: (options) ->
+      @reset()
+
       @height = options.height
       @width  = options.width
 
@@ -40,6 +31,7 @@ namespace models:
       @types = options.types
 
       @setTargets options.targets
+      @setGrid()
 
     setTargets: (targets) ->
       if @targets
@@ -48,6 +40,17 @@ namespace models:
       for key, value of targets
         @targets[key] = new models.CupsCounter key, value
         @targets[key].on? 'change:done', @checkWinHandler
+
+    setGrid: ->
+      if @grid
+        @grid.off()
+
+      @grid = new models.Grid(@)
+      @grid.on 'change', => @trigger 'change:grid'
+      @grid.on 'swap', => @moves -= 1
+      @grid.on 'matches', (score, types) =>
+        @updateTarget(types)
+        @updateScore(score)
 
     updateTarget: (types) ->
       for key, value of types
