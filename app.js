@@ -1,9 +1,5 @@
 (function() {
-  var Canvas, Counter, Cup, CupsCounter, CupsCounters, Field, Game, Grid, PropertyMixin, moduleKeywords,
-    slice = [].slice,
-    indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; },
-    extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
-    hasProp = {}.hasOwnProperty;
+  var slice = [].slice;
 
   this.EventMixin = {
     _eventHandlers: function() {
@@ -40,15 +36,21 @@
       }
     },
     trigger: function() {
-      var args, cb, j, len, name, ref;
+      var args, cb, i, len, name, ref;
       name = arguments[0], args = 2 <= arguments.length ? slice.call(arguments, 1) : [];
       ref = this._getHandlers(name);
-      for (j = 0, len = ref.length; j < len; j++) {
-        cb = ref[j];
+      for (i = 0, len = ref.length; i < len; i++) {
+        cb = ref[i];
         cb.apply(this, args);
       }
     }
   };
+
+}).call(this);
+
+(function() {
+  var moduleKeywords,
+    indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
   moduleKeywords = ['extended', 'included'];
 
@@ -87,13 +89,16 @@
 
   })();
 
+}).call(this);
 
-  /*
-   * Elegant pattern to simulate namespace in CoffeeScript
-  #
-   * @author Maks
-   */
 
+/*
+ * Elegant pattern to simulate namespace in CoffeeScript
+#
+ * @author Maks
+ */
+
+(function() {
   (function(root) {
     var fn;
     fn = function() {
@@ -121,7 +126,12 @@
     return root.module = fn;
   })(typeof global !== "undefined" && global !== null ? global : window);
 
-  PropertyMixin = {
+}).call(this);
+
+(function() {
+  var slice = [].slice;
+
+  this.PropertyMixin = {
     property: function(prop, options) {
       return Object.defineProperty(this.prototype, prop, options);
     },
@@ -133,15 +143,15 @@
           return this["_" + name];
         },
         set: function(value) {
-          var cb, j, len, n, r;
+          var cb, i, len, n, r;
           n = "set" + (name.capitalize());
           if (this[n] != null) {
             r = this[n](value);
           } else {
             r = this.setProp(name, value);
           }
-          for (j = 0, len = cbs.length; j < len; j++) {
-            cb = cbs[j];
+          for (i = 0, len = cbs.length; i < len; i++) {
+            cb = cbs[i];
             if (typeof this[cb] === "function") {
               this[cb]();
             }
@@ -163,9 +173,17 @@
     }
   };
 
+}).call(this);
+
+(function() {
   String.prototype.capitalize = function() {
     return this.charAt(0).toUpperCase() + this.slice(1);
   };
+
+}).call(this);
+
+(function() {
+  var slice = [].slice;
 
   this.ViewMixin = {
     $: function() {
@@ -196,6 +214,13 @@
     }
   };
 
+}).call(this);
+
+(function() {
+  var Cup,
+    extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+    hasProp = {}.hasOwnProperty;
+
   namespace({
     models: Cup = (function(superClass) {
       extend(Cup, superClass);
@@ -224,6 +249,13 @@
     })(Module)
   });
 
+}).call(this);
+
+(function() {
+  var CupsCounter,
+    extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+    hasProp = {}.hasOwnProperty;
+
   namespace({
     models: CupsCounter = (function(superClass) {
       extend(CupsCounter, superClass);
@@ -238,8 +270,8 @@
 
       CupsCounter.addProperty('done');
 
-      function CupsCounter(name1, all) {
-        this.name = name1;
+      function CupsCounter(name, all) {
+        this.name = name;
         this.all = all;
         this.score = 0;
       }
@@ -252,6 +284,13 @@
 
     })(Module)
   });
+
+}).call(this);
+
+(function() {
+  var Game,
+    extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+    hasProp = {}.hasOwnProperty;
 
   namespace({
     models: Game = (function(superClass) {
@@ -375,6 +414,13 @@
 
     })(Module)
   });
+
+}).call(this);
+
+(function() {
+  var Grid,
+    extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+    hasProp = {}.hasOwnProperty;
 
   namespace({
     models: Grid = (function(superClass) {
@@ -869,6 +915,13 @@
     })(Module)
   });
 
+}).call(this);
+
+(function() {
+  var Canvas,
+    extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+    hasProp = {}.hasOwnProperty;
+
   namespace({
     ui: Canvas = (function(superClass) {
       extend(Canvas, superClass);
@@ -960,6 +1013,13 @@
     })(Module)
   });
 
+}).call(this);
+
+(function() {
+  var Counter,
+    extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+    hasProp = {}.hasOwnProperty;
+
   namespace({
     ui: Counter = (function(superClass) {
       extend(Counter, superClass);
@@ -972,8 +1032,8 @@
 
       Counter.addProperty('model');
 
-      function Counter(el, prop1, model) {
-        this.prop = prop1;
+      function Counter(el, prop, model) {
+        this.prop = prop;
         this.setElement(el);
         this.model = model;
       }
@@ -1010,6 +1070,14 @@
 
     })(Module)
   });
+
+}).call(this);
+
+(function() {
+  var Cup,
+    extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+    hasProp = {}.hasOwnProperty,
+    slice = [].slice;
 
   namespace({
     ui: Cup = (function(superClass) {
@@ -1133,8 +1201,8 @@
       };
 
       Cup.prototype.move = function() {
-        var cb, col, init, j, ref, ref1, row, sx, sy, x, y;
-        col = arguments[0], row = arguments[1], init = 4 <= arguments.length ? slice.call(arguments, 2, j = arguments.length - 1) : (j = 2, []), cb = arguments[j++];
+        var cb, col, i, init, ref, ref1, row, sx, sy, x, y;
+        col = arguments[0], row = arguments[1], init = 4 <= arguments.length ? slice.call(arguments, 2, i = arguments.length - 1) : (i = 2, []), cb = arguments[i++];
         x = this.calcX(row);
         y = this.calcY(col);
         if (init.length === 2) {
@@ -1169,6 +1237,13 @@
 
     })(Module)
   });
+
+}).call(this);
+
+(function() {
+  var CupsCounter,
+    extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+    hasProp = {}.hasOwnProperty;
 
   namespace({
     ui: CupsCounter = (function(superClass) {
@@ -1278,6 +1353,13 @@
     })(Module)
   });
 
+}).call(this);
+
+(function() {
+  var CupsCounters,
+    extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+    hasProp = {}.hasOwnProperty;
+
   namespace({
     ui: CupsCounters = (function(superClass) {
       extend(CupsCounters, superClass);
@@ -1324,6 +1406,13 @@
 
     })(Module)
   });
+
+}).call(this);
+
+(function() {
+  var Field,
+    extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+    hasProp = {}.hasOwnProperty;
 
   namespace({
     ui: Field = (function(superClass) {
@@ -1373,6 +1462,9 @@
     })(Module)
   });
 
+}).call(this);
+
+(function() {
   $((function(_this) {
     return function() {
       return _this.field = new ui.Field(new models.Game({
@@ -1390,5 +1482,3 @@
   })(this));
 
 }).call(this);
-
-//# sourceMappingURL=app.js.map

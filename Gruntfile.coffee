@@ -5,11 +5,11 @@ module.exports = (grunt) ->
 
     coffee:
       compile:
-        options: sourceMap: true
         files:
           'app.js': ['src/scripts/base/**/*.coffee', 'src/scripts/app/**/*.coffee', 'src/scripts/init.coffee']
 
     sass:
+      options: sourcemap: 'none'
       compile:
         files:
           'styles.css': 'src/styles/styles.scss'
@@ -18,14 +18,6 @@ module.exports = (grunt) ->
       compile:
         files:
           'index.html': 'src/layouts/index.jade'
-      templates:
-        options:
-          client: true
-          namespace: 'templates'
-          processName: (filename) ->
-            filename.replace(/^src\/scripts\/templates\/(.*)\.jade$/, '$1')
-        files:
-          'templates.js': 'src/scripts/templates/**/*.jade'
 
     connect:
       server:
@@ -41,9 +33,6 @@ module.exports = (grunt) ->
       coffee:
         files: ['src/**/*.coffee']
         tasks: ['coffee:compile']
-      templates:
-        files: ['src/scripts/templates/**/*.jade']
-        tasks: ['jade:templates']
       sass:
         files: ['src/**/*.scss']
         tasks: ['sass:compile']
