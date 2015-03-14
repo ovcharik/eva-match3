@@ -9,11 +9,16 @@ namespace models:
     @addProperty 'types'
 
     constructor: (model) ->
+      @lock = 0
       @model = model
       @width  = @model.width
       @height = @model.height
       @types = @model.types
+      @swaped = false
+
       @on 'change', _.bind @onChange, @
+      @on 'change:lock', _.bind @onChangeLock, @
+
       @init()
 
 
@@ -129,6 +134,11 @@ namespace models:
         @fillEmpty()
         return
 
+    onChangeLock: ->
+      if not @lock and @swaped
+        @trigger 'swap'
+        @swaped = false
+
 
     ##############
     # cup methods
@@ -136,7 +146,6 @@ namespace models:
     newCup: (row, col) ->
       cup = new models.Cup(row, col, @randomType())
       cup.on 'click',    => return if @lock; @onCupClick(cup)
-      cup.on 'dblclick', => return if @lock; @onCupDblClick(cup)
       cup
 
     removeCup: (cup) ->
@@ -173,9 +182,6 @@ namespace models:
         cup.selected = !cup.selected
         @selected = cup
 
-    onCupDblClick: (cup) ->
-      @removeCups [cup]
-
 
     ##################
     # animate methods
@@ -209,7 +215,7 @@ namespace models:
             doSwap()
             endSwap()
         else
-          @trigger 'swap'
+          @swaped = true
           endSwap()
 
     fillEmpty: ->
@@ -242,11 +248,11 @@ namespace models:
     # helpers
 
     lockAndExec: (h = [], c) ->
-      @lock = true
+      @lock += 1
       if h.length > 0
         async.parallel h, =>
           c?()
-          @lock = false
+          @lock -= 1
       else
         c?()
-        @lock = false
+        @lock -= 1

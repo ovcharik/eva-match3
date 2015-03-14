@@ -394,11 +394,14 @@
       Grid.addProperty('types');
 
       function Grid(model) {
+        this.lock = 0;
         this.model = model;
         this.width = this.model.width;
         this.height = this.model.height;
         this.types = this.model.types;
+        this.swaped = false;
         this.on('change', _.bind(this.onChange, this));
+        this.on('change:lock', _.bind(this.onChangeLock, this));
         this.init();
       }
 
@@ -597,6 +600,13 @@
         }
       };
 
+      Grid.prototype.onChangeLock = function() {
+        if (!this.lock && this.swaped) {
+          this.trigger('swap');
+          return this.swaped = false;
+        }
+      };
+
       Grid.prototype.newCup = function(row, col) {
         var cup;
         cup = new models.Cup(row, col, this.randomType());
@@ -606,14 +616,6 @@
               return;
             }
             return _this.onCupClick(cup);
-          };
-        })(this));
-        cup.on('dblclick', (function(_this) {
-          return function() {
-            if (_this.lock) {
-              return;
-            }
-            return _this.onCupDblClick(cup);
           };
         })(this));
         return cup;
@@ -658,10 +660,6 @@
         }
       };
 
-      Grid.prototype.onCupDblClick = function(cup) {
-        return this.removeCups([cup]);
-      };
-
       Grid.prototype.trySwap = function(c1, c2) {
         var animHandlers, doSwap, endSwap, startSwap;
         startSwap = (function(_this) {
@@ -701,7 +699,7 @@
                 return endSwap();
               });
             } else {
-              _this.trigger('swap');
+              _this.swaped = true;
               return endSwap();
             }
           };
@@ -754,21 +752,21 @@
         if (h == null) {
           h = [];
         }
-        this.lock = true;
+        this.lock += 1;
         if (h.length > 0) {
           return async.parallel(h, (function(_this) {
             return function() {
               if (typeof c === "function") {
                 c();
               }
-              return _this.lock = false;
+              return _this.lock -= 1;
             };
           })(this));
         } else {
           if (typeof c === "function") {
             c();
           }
-          return this.lock = false;
+          return this.lock -= 1;
         }
       };
 
