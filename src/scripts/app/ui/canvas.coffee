@@ -24,6 +24,7 @@ namespace ui:
       @model = model
 
       @stage = new createjs.Stage(@el)
+      createjs.Touch.enable(@stage)
       @resetSize()
       @initHandlers()
 

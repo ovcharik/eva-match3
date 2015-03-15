@@ -691,6 +691,13 @@
         return results;
       };
 
+      Grid.prototype.getCupOrNull = function(col, row) {
+        if (col < 0 || col >= this.width || row < 0 || row >= this.height) {
+          return null;
+        }
+        return this.grid[row][col];
+      };
+
       Grid.prototype.onChange = function() {
         if (this.hasEmpty()) {
           this.fillEmpty();
@@ -713,6 +720,14 @@
               return;
             }
             return _this.onCupClick(cup);
+          };
+        })(this));
+        cup.on('move', (function(_this) {
+          return function(x, y) {
+            if (_this.lock) {
+              return;
+            }
+            return _this.onCupMove(cup, x, y);
           };
         })(this));
         return cup;
@@ -754,6 +769,19 @@
         } else {
           cup.selected = !cup.selected;
           return this.selected = cup;
+        }
+      };
+
+      Grid.prototype.onCupMove = function(cup, x, y) {
+        var c1, c2;
+        c1 = cup;
+        c2 = this.getCupOrNull(c1.col + x, c1.row + y);
+        if (c1 && c2) {
+          if (this.selected) {
+            this.selected.selected = false;
+            this.selected = null;
+          }
+          return this.trySwap(c1, c2);
         }
       };
 
@@ -967,6 +995,7 @@
         this.setElement(el);
         this.model = model;
         this.stage = new createjs.Stage(this.el);
+        createjs.Touch.enable(this.stage);
         this.resetSize();
         this.initHandlers();
         this.updateGrid();
@@ -1127,20 +1156,51 @@
       function Cup(cx, cy, size, model) {
         this.model = model;
         this.size = size;
+        this.moving = null;
         this.shape = new createjs.Shape;
         this.shape.set({
           snapToPixel: true,
           x: this.x,
           y: this.y
         });
-        this.shape.addEventListener('click', (function(_this) {
-          return function() {
-            return _this.model.trigger('click');
+        this.shape.addEventListener('mousedown', (function(_this) {
+          return function(event) {
+            return _this.moving = {
+              x: event.rawX,
+              y: event.rawY
+            };
           };
         })(this));
-        this.shape.addEventListener('dblclick', (function(_this) {
-          return function() {
-            return _this.model.trigger('dblclick');
+        this.shape.addEventListener('pressup', (function(_this) {
+          return function(event) {
+            if (!_this.moving) {
+              return;
+            }
+            if (!_this.shifted(event.rawX, event.rawY)) {
+              _this.model.trigger('click');
+            }
+            return _this.moving = null;
+          };
+        })(this));
+        this.shape.addEventListener('pressmove', (function(_this) {
+          return function(event) {
+            var x, y;
+            if (!_this.moving) {
+              return;
+            }
+            if (_this.shifted(event.rawX, event.rawY)) {
+              x = event.rawX - _this.moving.x;
+              y = event.rawY - _this.moving.y;
+              if (Math.abs(x) > Math.abs(y)) {
+                x = Math.sign(x);
+                y = 0;
+              } else {
+                x = 0;
+                y = Math.sign(y);
+              }
+              _this.model.trigger('move', x, y);
+              return _this.moving = null;
+            }
           };
         })(this));
         this.model.on('change:selected', (function(_this) {
@@ -1159,6 +1219,12 @@
           };
         })(this));
       }
+
+      Cup.prototype.shifted = function(x, y) {
+        var d;
+        d = this.size * 0.2;
+        return this.moving && (Math.abs(this.moving.x - x) > d || Math.abs(this.moving.y - y) > d);
+      };
 
       Cup.prototype.calcX = function(col) {
         return col * this.size + this.size / 2;

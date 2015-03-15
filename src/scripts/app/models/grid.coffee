@@ -153,6 +153,11 @@ namespace models:
         for cup, x in row
           cb?(cup, x, y) if cup
 
+    getCupOrNull: (col, row) ->
+      if col < 0 || col >= @width || row < 0 || row >= @height
+        return null
+      return @grid[row][col]
+
 
     ################
     # grid handlers
@@ -173,7 +178,8 @@ namespace models:
 
     newCup: (row, col) ->
       cup = new models.Cup(row, col, @randomType())
-      cup.on 'click',    => return if @lock; @onCupClick(cup)
+      cup.on 'click', => return if @lock; @onCupClick(cup)
+      cup.on 'move', (x, y) => return if @lock; @onCupMove(cup, x, y)
       cup
 
     removeCup: (cup) ->
@@ -209,6 +215,15 @@ namespace models:
       else
         cup.selected = !cup.selected
         @selected = cup
+
+    onCupMove: (cup, x, y) ->
+      c1 = cup
+      c2 = @getCupOrNull(c1.col + x, c1.row + y)
+      if c1 and c2
+        if @selected
+          @selected.selected = false
+          @selected = null
+        @trySwap(c1, c2)
 
 
     ##################

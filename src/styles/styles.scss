@@ -49,6 +49,7 @@ $canvas-size: 80%;
   .header {
     height: $header-height;
     background: darken($color-secondary, 50%);
+    z-index: 1;
 
     .counter {
       height: 100%;
@@ -134,4 +135,26 @@ $canvas-size: 80%;
     bottom: 0;
     right:  0;
   }
+}
+
+@media (orientation: portrait) {
+
+  .wrapper {
+    position: relative;
+    height: 100%;
+    width: 100%;
+  }
+
+  .field {
+    position: relative;
+    height: 100%;
+    width: 100%;
+    padding-top: $header-height;
+    top: -$header-height;
+
+    .field-canvas {
+      top: $header-height;
+    }
+  }
+
 }

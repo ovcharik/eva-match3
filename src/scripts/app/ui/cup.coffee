@@ -34,6 +34,7 @@ namespace ui:
     constructor: (cx, cy, size, model) ->
       @model = model
       @size = size
+      @moving = null
 
       @shape = new createjs.Shape
       @shape.set
@@ -41,12 +42,44 @@ namespace ui:
         x: @x
         y: @y
 
-      @shape.addEventListener 'click',    => @model.trigger 'click'
-      @shape.addEventListener 'dblclick', => @model.trigger 'dblclick'
+      # @shape.addEventListener 'click',     => @model.trigger 'click'
+      # @shape.addEventListener 'dblclick',  => @model.trigger 'dblclick'
+
+      @shape.addEventListener 'mousedown', (event) =>
+        @moving =
+          x: event.rawX
+          y: event.rawY
+
+      @shape.addEventListener 'pressup', (event) =>
+        return unless @moving
+        unless @shifted(event.rawX, event.rawY)
+          @model.trigger 'click'
+        @moving = null
+
+      @shape.addEventListener 'pressmove', (event) =>
+        return unless @moving
+        if @shifted(event.rawX, event.rawY)
+          x = event.rawX - @moving.x
+          y = event.rawY - @moving.y
+          if Math.abs(x) > Math.abs(y)
+            x = Math.sign(x)
+            y = 0
+          else
+            x = 0
+            y = Math.sign(y)
+          @model.trigger 'move', x, y
+          @moving = null
 
       @model.on 'change:selected', => @draw()
       @model.on 'change:col', => @calc()
       @model.on 'change:row', => @calc()
+
+    shifted: (x, y) ->
+      d = @size * 0.2
+      @moving and (
+        Math.abs(@moving.x - x) > d or
+        Math.abs(@moving.y - y) > d
+      )
 
     calcX: (col) -> col * @size + @size / 2
     calcY: (row) -> row * @size + @size / 2

@@ -30,7 +30,8 @@ div, canvas {
   right: 0; }
   .wrapper .header {
     height: 60px;
-    background: #460500; }
+    background: #460500;
+    z-index: 1; }
     .wrapper .header .counter {
       height: 100%;
       width: 20%;
@@ -121,3 +122,18 @@ div, canvas {
     left: 0;
     bottom: 0;
     right: 0; }
+
+@media (orientation: portrait) {
+  .wrapper {
+    position: relative;
+    height: 100%;
+    width: 100%; }
+
+  .field {
+    position: relative;
+    height: 100%;
+    width: 100%;
+    padding-top: 60px;
+    top: -60px; }
+    .field .field-canvas {
+      top: 60px; } }
