@@ -1534,10 +1534,10 @@
   $((function(_this) {
     return function() {
       return _this.field = new ui.Field(new models.Game({
-        width: 7,
-        height: 7,
-        moves: 40,
-        types: ['red', 'green', 'blue', 'yellow', 'magenta'],
+        width: 5,
+        height: 5,
+        moves: 30,
+        types: ['red', 'green', 'blue', 'yellow'],
         targets: {
           red: 50,
           green: 50,
