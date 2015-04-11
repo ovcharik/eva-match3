@@ -1002,6 +1002,7 @@
       }
 
       Canvas.prototype.initHandlers = function() {
+        createjs.Ticker.timingMode = createjs.Ticker.RAF;
         createjs.Ticker.addEventListener('tick', this.handlers.onTick);
         return this.model.on('change:grid', this.handlers.onUpdateGrid);
       };

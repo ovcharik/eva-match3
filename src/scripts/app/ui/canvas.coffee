@@ -31,6 +31,7 @@ namespace ui:
       @updateGrid()
 
     initHandlers: ->
+      createjs.Ticker.timingMode = createjs.Ticker.RAF
       createjs.Ticker.addEventListener 'tick', @handlers.onTick
 
       @model.on 'change:grid', @handlers.onUpdateGrid
